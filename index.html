@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>منصة تحليل ميزان المراجعة والقوائم المالية</title>
-    <!-- مكتبة SheetJS لقراءة ملفات الإكسيل -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- مكتبة قراءة ملفات الإكسيل SheetJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary-color: #1e3a8a;
-            --secondary-color: #3b82f6;
+            --secondary-color: #2563eb;
+            --success-color: #16a34a;
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
             --text-color: #1e293b;
@@ -45,28 +46,57 @@
             border-radius: 12px;
             padding: 30px;
             text-align: center;
-            margin-bottom: 30px;
-            cursor: pointer;
+            margin-bottom: 20px;
             transition: all 0.3s ease;
-        }
-
-        .upload-card:hover {
-            background-color: #eff6ff;
         }
 
         input[type="file"] {
             display: none;
         }
 
-        .btn-upload {
-            background-color: var(--primary-color);
+        .btn {
+            background-color: var(--secondary-color);
             color: white;
-            padding: 10px 24px;
+            padding: 12px 28px;
             border-radius: 6px;
             border: none;
             font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
+            margin: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-generate {
+            background-color: var(--success-color);
+            font-size: 18px;
+            padding: 14px 36px;
+        }
+
+        .btn-demo {
+            background-color: #64748b;
+        }
+
+        .file-info {
             margin-top: 15px;
+            font-size: 15px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .alert {
+            padding: 15px;
+            background-color: #dbeafe;
+            color: #1e40af;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+            font-weight: bold;
         }
 
         .nav-tabs {
@@ -129,19 +159,11 @@
 
         .notes-list {
             line-height: 1.8;
+            font-size: 16px;
         }
 
         .notes-list li {
-            margin-bottom: 10px;
-        }
-        
-        .alert {
-            padding: 12px;
-            background-color: #dbeafe;
-            color: #1e40af;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            display: none;
+            margin-bottom: 12px;
         }
     </style>
 </head>
@@ -150,18 +172,31 @@
 <div class="container">
     <header>
         <h1>نظام التحليل المالي واستخراج القوائم</h1>
-        <p>قم برفع ميزان المراجعة (Excel / CSV) للحصول على القوائم المالية والإيضاحات تلقائياً</p>
+        <p>ارفع ميزان المراجعة ثم اضغط على زر "قم بإنشاء التقرير"</p>
     </header>
 
-    <div class="upload-card" onclick="document.getElementById('fileInput').click()">
-        <h3>اضغط هنا لرفع ملف ميزان المراجعة</h3>
+    <!-- منطقة رفع الملف والدعم -->
+    <div class="upload-card">
+        <h3>الخطوة 1: اختيار ملف ميزان المراجعة</h3>
         <p>يدعم صيغ (.xlsx, .xls, .csv)</p>
-        <button class="btn-upload">اختيار الملف</button>
-        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="handleFile(event)">
+        
+        <button class="btn" onclick="document.getElementById('fileInput').click()">اختيار الملف</button>
+        <button class="btn btn-demo" onclick="loadDemoData()">تجرِبة ببيانات توضيحية</button>
+        
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="fileSelected(event)">
+        
+        <div id="fileDetails" class="file-info">لم يتم اختيار ملف بعد</div>
+        
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--border-color);">
+        
+        <h3>الخطوة 2: إنشاء وتقييم التقرير</h3>
+        <button class="btn btn-generate" onclick="generateReport()">قم بإنشاء التقرير</button>
     </div>
 
+    <!-- رسائل التنبيه -->
     <div id="statusAlert" class="alert"></div>
 
+    <!-- التبويبات لعرض القوائم -->
     <div class="nav-tabs" id="tabsHeader" style="display: none;">
         <button class="tab-btn active" data-tab="incomeTab" onclick="switchTab(event, 'incomeTab')">قائمة الدخل</button>
         <button class="tab-btn" data-tab="balanceTab" onclick="switchTab(event, 'balanceTab')">المركز المالي</button>
@@ -176,7 +211,7 @@
             <thead>
                 <tr>
                     <th>البيان</th>
-                    <th>المبلغ</th>
+                    <th>المبلغ (د.ك / ر.س)</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -190,7 +225,7 @@
             <thead>
                 <tr>
                     <th>البيان</th>
-                    <th>المبلغ</th>
+                    <th>المبلغ (د.ك / ر.س)</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -204,7 +239,7 @@
             <thead>
                 <tr>
                     <th>النشاط / البيان</th>
-                    <th>المبلغ</th>
+                    <th>المبلغ (د.ك / ر.س)</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -219,14 +254,15 @@
 </div>
 
 <script>
-    function handleFile(e) {
+    let uploadedRawData = null;
+
+    // 1. عند إرفاق الملف
+    function fileSelected(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        const alertBox = document.getElementById('statusAlert');
-        alertBox.style.display = 'block';
-        alertBox.textContent = 'جاري قراءة ومعالجة الملف...';
-
+        document.getElementById('fileDetails').textContent = `الملف المختار: ${file.name}`;
+        
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
@@ -235,61 +271,83 @@
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                // تحويل الشيت إلى مصفوفة بيانات
-                const rawData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-                processTrialBalance(rawData);
-                alertBox.textContent = 'تم تحليل ميزان المراجعة بنجاح!';
-            } catch (error) {
-                alertBox.textContent = 'حدث خطأ أثناء قراءة الملف، يرجى التأكد من صيغة الإكسيل.';
-                console.error(error);
+                // تحويل الشيت إلى مصفوفة صفوف
+                uploadedRawData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                showAlert('تم تحميل الملف بنجاح! اضغط الآن على زر "قم بإنشاء التقرير".', '#dbeafe', '#1e40af');
+            } catch (err) {
+                showAlert('خطأ في قراءة ملف الإكسيل. يُرجى التاكد من سلامة الملف.', '#fee2e2', '#991b1b');
             }
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // تنظيف وتحويل القيم المالية
-    function parseNum(val) {
-        if (!val) return 0;
+    // تجربة ببيانات افتراضية للتأكد من شغل الصفحة
+    function loadDemoData() {
+        uploadedRawData = [
+            ["اسم الحساب", "مدين", "دائن"],
+            ["إيرادات المبيعات", 0, 150000],
+            ["تكلفة البضاعة المباعة", 80000, 0],
+            ["مصروفات العمومية والترويج", 20000, 0],
+            ["مصروف رواتب وأجور", 15000, 0],
+            ["النقدية وما في حكمها", 50000, 0],
+            ["العملاء والمدينون", 35000, 0],
+            ["الأصول الثابتة والمعدات", 100000, 0],
+            ["الموردون والدائنون", 0, 30000],
+            ["رأس المال", 0, 120000]
+        ];
+        document.getElementById('fileDetails').textContent = 'تم تحميل نموذج بيانات تجريبي جاهز!';
+        showAlert('تم تحميل البيانات التجريبية! اضغط الآن على "قم بإنشاء التقرير".', '#dbeafe', '#1e40af');
+    }
+
+    // 2. دالة تنظيف الأرقام تحسباً لوجود فاصلة ألفية أو نصوص
+    function parseValue(val) {
+        if (val === undefined || val === null) return 0;
         if (typeof val === 'number') return val;
-        let str = String(val).replace(/,/g, '').trim();
-        let num = parseFloat(str);
+        let cleaned = String(val).replace(/,/g, '').trim();
+        let num = parseFloat(cleaned);
         return isNaN(num) ? 0 : num;
     }
 
-    function processTrialBalance(data) {
+    // 3. تحليل ميزان المراجعة واستخراج القوائم عند الضغط على الزر
+    function generateReport() {
+        if (!uploadedRawData || uploadedRawData.length === 0) {
+            showAlert('يرجى اختيار ملف ميزان المراجعة أولاً أو الضغط على تجربة ببيانات توضيحية!', '#fee2e2', '#991b1b');
+            return;
+        }
+
         let revenues = 0, expenses = 0;
         let assets = 0, liabilities = 0, equity = 0;
         let cash = 0, receivables = 0;
 
-        // البحث في جميع الصفوف والأعمدة
-        data.forEach((row) => {
-            if (!row || row.length === 0) return;
+        uploadedRawData.forEach((row) => {
+            if (!row || row.length < 2) return;
 
-            // تحويل كافة عناصر الصف إلى نصوص للبحث عن الكلمات المفتاحية
-            let rowText = row.join(' ');
+            // دمج الصف لمعرفة اسم الحساب
+            let rowString = row.join(' ').toLowerCase();
 
-            // استخراج جميع الأرقام الموجودة بالصف
-            let numbersInRow = row.map(val => parseNum(val)).filter(val => val !== 0);
-            
-            // نفترض أن أكبر قيمة عددية في الصف تمثل المبلغ المعني
-            let val = numbersInRow.length > 0 ? Math.abs(numbersInRow[0]) : 0;
+            // جمع كافة الأرقام المتاحة في الصف
+            let rowNumbers = row.map(v => parseValue(v)).filter(v => v !== 0);
+            if (rowNumbers.length === 0) return;
 
-            // تصنيف الحسابات بناءً على مسمياتها
-            if (rowText.includes('إيراد') || rowText.includes('مبيعات') || rowText.includes('ارباح')) {
+            // القيمة المقابلة للحساب
+            let val = Math.abs(rowNumbers[0]);
+
+            // التصنيف الذكي بناءً على المسميات المحاسبية
+            if (rowString.includes('إيراد') || rowString.includes('ايراد') || rowString.includes('مبيعات') || rowString.includes('أرباح') || rowString.includes('ارباح')) {
                 revenues += val;
-            } else if (rowText.includes('مصروف') || rowText.includes('تكلفة') || rowText.includes('رواتب') || rowText.includes('ايجار') || rowText.includes('استهلاك')) {
+            } else if (rowString.includes('مصروف') || rowString.includes('تكلفة') || rowString.includes('تكاليف') || rowString.includes('رواتب') || rowString.includes('إيجار') || rowString.includes('ايجار') || rowString.includes('استهلاك')) {
                 expenses += val;
-            } else if (rowText.includes('نقدية') || rowText.includes('بنك') || rowText.includes('صندوق') || rowText.includes('كاش')) {
+            } else if (rowString.includes('نقدية') || rowString.includes('بنك') || rowString.includes('صندوق') || rowString.includes('كاش')) {
                 cash += val;
                 assets += val;
-            } else if (rowText.includes('عملاء') || rowText.includes('ذمم مدينة') || rowText.includes('مدينة')) {
+            } else if (rowString.includes('عملاء') || rowString.includes('ذمم مدينة') || rowString.includes('مدينة')) {
                 receivables += val;
                 assets += val;
-            } else if (rowText.includes('أصول') || rowText.includes('معدات') || rowText.includes('سيارات') || rowText.includes('عقارات') || rowText.includes('بضاعة')) {
+            } else if (rowString.includes('أصول') || rowString.includes('اصول') || rowString.includes('معدات') || rowString.includes('سيارات') || rowString.includes('مباني') || rowString.includes('بضاعة')) {
                 assets += val;
-            } else if (rowText.includes('موردين') || rowText.includes('دائنة') || rowText.includes('قروض') || rowText.includes('التزامات')) {
+            } else if (rowString.includes('موردين') || rowString.includes('دائنة') || rowString.includes('قروض') || rowString.includes('التزامات')) {
                 liabilities += val;
-            } else if (rowText.includes('رأس المال') || rowText.includes('أرباح مبقاة') || rowText.includes('حقوق الملكية')) {
+            } else if (rowString.includes('رأس المال') || rowString.includes('راس المال') || rowString.includes('أرباح مراحل') || rowString.includes('حقوق الملكية')) {
                 equity += val;
             }
         });
@@ -297,39 +355,41 @@
         const netIncome = revenues - expenses;
         const totalEquity = equity + netIncome;
 
-        // 1. قائمة الدخل
+        // ملء الجدول 1: قائمة الدخل
         document.querySelector('#incomeTable tbody').innerHTML = `
             <tr><td>إجمالي الإيرادات</td><td>${revenues.toLocaleString('ar-EG')}</td></tr>
-            <tr><td>إجمالي المصروفات</td><td>(${expenses.toLocaleString('ar-EG')})</td></tr>
+            <tr><td>إجمالي المصروفات والتكاليف</td><td>(${expenses.toLocaleString('ar-EG')})</td></tr>
             <tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>${netIncome.toLocaleString('ar-EG')}</td></tr>
         `;
 
-        // 2. المركز المالي
+        // ملء الجدول 2: المركز المالي
         document.querySelector('#balanceTable tbody').innerHTML = `
-            <tr><td>الأصول (تشتمل النقدية والعملاء والأصول الثابتة)</td><td>${assets.toLocaleString('ar-EG')}</td></tr>
+            <tr><td>الأصول (متضمنة النقدية والعملاء والأصول الثابتة)</td><td>${assets.toLocaleString('ar-EG')}</td></tr>
             <tr class="total-row"><td>إجمالي الأصول</td><td>${assets.toLocaleString('ar-EG')}</td></tr>
-            <tr><td>الالتزامات</td><td>${liabilities.toLocaleString('ar-EG')}</td></tr>
-            <tr><td>حقوق الملكية (شاملة أرباح الفترة)</td><td>${totalEquity.toLocaleString('ar-EG')}</td></tr>
+            <tr><td>الالتزامات (الموردون والدائنون)</td><td>${liabilities.toLocaleString('ar-EG')}</td></tr>
+            <tr><td>حقوق الملكية (رأس المال + أرباح الفترة)</td><td>${totalEquity.toLocaleString('ar-EG')}</td></tr>
             <tr class="total-row"><td>إجمالي الالتزامات وحقوق الملكية</td><td>${(liabilities + totalEquity).toLocaleString('ar-EG')}</td></tr>
         `;
 
-        // 3. التدفقات النقدية
+        // ملء الجدول 3: التدفقات النقدية
         document.querySelector('#cashTable tbody').innerHTML = `
-            <tr><td>صافي الدخل (الأرباح)</td><td>${netIncome.toLocaleString('ar-EG')}</td></tr>
+            <tr><td>صافي الربح قبل التغيرات</td><td>${netIncome.toLocaleString('ar-EG')}</td></tr>
             <tr><td>التغير في الذمم المدينة (العملاء)</td><td>(${receivables.toLocaleString('ar-EG')})</td></tr>
-            <tr class="total-row"><td>النقدية وما في حكمها في نهاية الفترة</td><td>${cash.toLocaleString('ar-EG')}</td></tr>
+            <tr class="total-row"><td>صافي النقدية المتوفرة في نهاية الفترة</td><td>${cash.toLocaleString('ar-EG')}</td></tr>
         `;
 
-        // 4. الملاحظات
+        // ملء الإيضاحات والملاحظات
         document.getElementById('notesContent').innerHTML = `
-            <li><strong>السياسات المحاسبية:</strong> تم إعداد التقرير المالي تلقائياً وفقاً للبيانات المستخرجة من ميزان المراجعة.</li>
-            <li><strong>السيولة:</strong> إجمالي رصيد النقدية والبنوك المتاحة هو ${cash.toLocaleString('ar-EG')}.</li>
-            <li><strong>نتيجة النشاط:</strong> حققت المنشأة صافي ${netIncome >= 0 ? 'ربح' : 'خسارة'} قدره ${Math.abs(netIncome).toLocaleString('ar-EG')}.</li>
+            <li><strong>السياسات المحاسبية:</strong> تم استخراج التقارير بناءً على البيانات المحاسبية المدخلة بميزان المراجعة.</li>
+            <li><strong>رصيد النقدية:</strong> يبلغ إجمالي النقدية في البنوك والصناديق <strong>${cash.toLocaleString('ar-EG')}</strong>.</li>
+            <li><strong>نتيجة النشاط:</strong> حققت المنشأة صافي أرباح قدرها <strong>${netIncome.toLocaleString('ar-EG')}</strong> خلال هذه الفترة.</li>
+            <li><strong>ملاحظة الميزانية:</strong> إجمالي الأصول هو <strong>${assets.toLocaleString('ar-EG')}</strong> مقابل إجمالي التزامات وحقوق ملكية <strong>${(liabilities + totalEquity).toLocaleString('ar-EG')}</strong>.</li>
         `;
 
-        // إظهار التبويبات وتفعيل الأول بدون أخطاء
+        // إظهار التبويبات
         document.getElementById('tabsHeader').style.display = 'flex';
         switchTab(null, 'incomeTab');
+        showAlert('تم إنشاء كافة القوائم المالية والملاحظات بنجاح!', '#dcfce7', '#15803d');
     }
 
     function switchTab(evt, tabId) {
@@ -344,6 +404,14 @@
             const defaultBtn = document.querySelector(`[data-tab="${tabId}"]`);
             if (defaultBtn) defaultBtn.classList.add('active');
         }
+    }
+
+    function showAlert(text, bgColor, textColor) {
+        const box = document.getElementById('statusAlert');
+        box.style.display = 'block';
+        box.style.backgroundColor = bgColor;
+        box.style.color = textColor;
+        box.textContent = text;
     }
 </script>
 
