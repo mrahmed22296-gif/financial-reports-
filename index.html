@@ -346,10 +346,16 @@ const DEBIT_NATURE = new Set(['cash','ar','inventory','prepaid','other_ca','ppe'
 // ====== ENHANCED CLASSIFICATION RULES - Bilingual (Arabic + English) ======
 // ORDER MATTERS - more specific rules should come first
 const CLASSIFY_RULES = [
-  // === ACCOUNTS RECEIVABLE (must come before revenue rules) ===
-  // TR- prefix typically means Trade Receivable
+  // === TRADE RECEIVABLE (TR- prefix) - accounts with company/customer names ===
   [/^TR\s*[-–—]\s*/i, 'ar'],
-  [/trade\s*receivable|receivable|debtor|customer|عميل|مدين|ذمم\s*مدينة|حسابات\s*مدينة|عملاء|اوراق\s*قبض/i, 'ar'],
+  [/^TP\s*[-–—]\s*/i, 'ar'],
+  // Company/customer names with common suffixes
+  [/(?:corp|inc|llc|ltd|company|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|شركات?)\s*(?!.*(?:expense|cost|revenue|sales|income))/i, 'ar'],
+  // Names that look like customer/vendor accounts (have a name after prefix)
+  [/(?:customer|عميل|client|vendor|مورد|supplier|dealer|موزع|agent|وكيل)\s*[-–—]\s*/i, 'ar'],
+  
+  // === ACCOUNTS RECEIVABLE (general) ===
+  [/trade\s*receivable|receivable|debtor|ذمم\s*مدينة|حسابات\s*مدينة|اوراق\s*قبض|عملاء|مدين(?!\s*دائن)/i, 'ar'],
   
   // === ACCOUNTS PAYABLE ===
   [/trade\s*payable|payable|supplier|creditor|vendor|مورد|دائن|ذمم\s*دائنة|حسابات\s*دائنة/i, 'ap'],
@@ -399,8 +405,8 @@ const CLASSIFY_RULES = [
   // === Dividends
   [/توزيعات|dividends?|ارباح\s*موزعة|توزيع\s*ارباح|cash\s*dividend|stock\s*dividend/i, 'dividends'],
   
-  // === Revenue / Sales (excluding TR- which is receivable)
-  [/\b(?:revenue|sales|مبيعات|إيرادات|ايرادات\s*تشغيلية|مبيعات\s*سلع|ايراد\s*الخدمات|ايرادات\s*النشاط|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|product\s*sales|turnover|income\s*from\s*operations)(?!\s*[-–—]\s*[A-Z])/i, 'revenue'],
+  // === Revenue / Sales (excluding TR-/TP- which are receivable)
+  [/(?:revenue|sales|مبيعات|إيرادات|ايرادات\s*تشغيلية|مبيعات\s*سلع|ايراد\s*الخدمات|ايرادات\s*النشاط|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|product\s*sales|turnover|income\s*from\s*operations)(?!\s*[-–—]\s*[A-Z])/i, 'revenue'],
   
   // === Other Income
   [/إيرادات أخرى|other income|ايرادات\s*غير\s*تشغيلية|ارباح\s*رأسمالية|دخل\s*استثماري|non-operating\s*income|investment\s*income|interest\s*income|rental\s*income|gain\s*on\s*sale|dividend\s*income|other\s*revenue/i, 'other_income'],
@@ -470,10 +476,13 @@ function classifyAccount(name, debit = 0, credit = 0) {
   
   // If account has debit balance only, it's likely expense or asset
   if (debit > 0 && credit === 0) {
-    // Check if it might be an asset
-    const assetKeywords = /أصول|asset|مخزون|inventory|نقد|cash|بنك|bank|أراضي|land|مباني|building|آلات|machinery|معدات|equipment|سيارات|vehicle|عملاء|customer|مدين|receivable|مقدم|prepaid|investment|استثمار|trading|تداول|decoration|ديكور|furniture|أثاث|fixtures|computer|حاسوب|equipment|معدات|tr\s*[-–—]|trade\s*receivable|refundable|deposit|وديعة|تأمين|ضمان/i;
+    // Check if it might be an asset (including customer/company accounts)
+    const assetKeywords = /أصول|asset|مخزون|inventory|نقد|cash|بنك|bank|أراضي|land|مباني|building|آلات|machinery|معدات|equipment|سيارات|vehicle|عملاء|customer|مدين|receivable|مقدم|prepaid|investment|استثمار|trading|تداول|decoration|ديكور|furniture|أثاث|fixtures|computer|حاسوب|equipment|معدات|tr\s*[-–—]|tp\s*[-–—]|trade\s*receivable|refundable|deposit|وديعة|تأمين|ضمان|trainers|company|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|corp|inc|llc|ltd/i;
     if (assetKeywords.test(trimmedName)) {
-      if (/tr\s*[-–—]|trade\s*receivable|customer|receivable|مدين|عملاء|debtor|corp|inc|llc|ltd|company|شركة/i.test(trimmedName)) return 'ar';
+      // If it looks like a customer/company account
+      if (/tr\s*[-–—]|tp\s*[-–—]|trade\s*receivable|receivable|customer|عملاء|مدين|debtor|corp|inc|llc|ltd|company|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|trainers/i.test(trimmedName)) {
+        return 'ar';
+      }
       if (/cash|bank|نقد|بنك|card|visa|mastercard|حساب|جاري|refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) {
         if (/refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) return 'other_ca';
         return 'cash';
@@ -495,6 +504,10 @@ function classifyAccount(name, debit = 0, credit = 0) {
       if (/cost of goods|cogs|تكلفة المبيعات|تكلفة البضاعة|direct cost/.test(trimmedName)) return 'cogs';
       return 'other_expense';
     }
+    // Last resort: check if it looks like a customer name
+    if (/[A-Z]{2,}|[a-z]{4,}|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|trainers|company/i.test(trimmedName)) {
+      return 'ar';
+    }
     return 'other_expense';
   }
   
@@ -507,7 +520,7 @@ function classifyAccount(name, debit = 0, credit = 0) {
   const lowerName = trimmedName.toLowerCase();
   if (/revenue|sales|income|إيرادات|مبيعات|دخل/.test(trimmedName)) return 'revenue';
   if (/expense|cost|مصاريف|مصروفات|تكلفة/.test(trimmedName)) return 'other_expense';
-  if (/tr\s*[-–—]|receivable|مدين|عملاء|customer|corp|inc|llc/.test(trimmedName)) return 'ar';
+  if (/tr\s*[-–—]|tp\s*[-–—]|receivable|مدين|عملاء|customer|corp|inc|llc|company|trainers/.test(trimmedName)) return 'ar';
   if (/asset|أصول|مخزون|نقد|بنك|استثمار|trading/.test(trimmedName)) return 'other_ca';
   if (/liability|payable|loan|قرض|دائن|مورد|التزام/.test(trimmedName)) return 'other_cl';
   if (/equity|capital|retained|reserve|ملكية|رأس|احتياطي|أرباح/.test(trimmedName)) return 'capital';
