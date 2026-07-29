@@ -380,6 +380,7 @@ const CATEGORY_GROUPS = [
   ]},
   {label:'حقوق الملكية', opts:[
     ['capital','رأس المال'],
+    ['partner_current','حساب الشريك الجاري'],
     ['reserves','احتياطيات'],
     ['retained','أرباح مبقاة (رصيد أول المدة)'],
     ['dividends','توزيعات أرباح (مخصومة من حقوق الملكية)'],
@@ -406,31 +407,39 @@ const DEBIT_NATURE = new Set([
 
 // ====== SYSTEME DE CLASSIFICATION AMÉLIORÉ ======
 const CLASSIFY_RULES = [
-  // ---- PRIORITÉ 1 : COMPTES FOURNISSEURS (avec distinction selon solde) ----
+  // ---- PRIORITÉ 1 : COMPTES DE CAPITAL ET PARTENAIRES ----
+  [/^Capital\s*[-–—]\s*/i, 'capital'],
+  [/\b(?:capital|رأس\s*المال|رأس\s*مال|share\s*capital|common\s*stock|preferred\s*stock|paid-up\s*capital|issued\s*capital)\b/i, 'capital'],
+  [/(?:partner|شريك|شركاء)\s*(?:current|account|جاري|حساب)/i, 'partner_current'],
+  [/Partner\s*Current\s*Account/i, 'partner_current'],
+  [/حساب\s*الشريك\s*الجاري|حساب\s*الشركاء\s*الجاري/i, 'partner_current'],
+  
+  // ---- PRIORITÉ 2 : COMPTES FOURNISSEURS ----
   [/^(TP|tp)\s*[-–—]\s*/i, 'supplier_account'],
   [/(?:supplier|vendor|fournisseur|مورد|دائن|حسابات\s*دائنة|ذمم\s*دائنة|creditor|payable)\s*(?!.*(?:prepaid|advance|مقدم|دفعة\s*مقدمة))/i, 'supplier_account'],
   
-  // ---- COMPTES CLIENTS (AR) ----
+  // ---- PRIORITÉ 3 : COMPTES CLIENTS (AR) ----
   [/^TR\s*[-–—]\s*/i, 'ar'],
   [/(?:customer|client|عميل|receivable|debiteur|مدين|ذمم\s*مدينة|حسابات\s*مدينة|عملاء|debtor|receivable)\s*(?!.*(?:supplier|fournisseur|مورد))/i, 'ar'],
+  
+  // ---- PRIORITÉ 4 : COMPTES D'ACCROISSANCE (ACCRUED) ----
+  [/(?:accrued|مستحق|مصروفات\s*مستحقة|مستحقات\s*موظفين|accruals?|accrued\s*expenses?|salaries\s*payable|رواتب\s*مستحقة|wages\s*payable)/i, 'accrued'],
   
   // ---- AUTRES COMPTES ----
   [/مجمع\s*إهلاك|accum(ulated)?\s*dep|accumulated\s*amort/i, 'accum_dep'],
   [/إهلاك|استهلاك|depreciation|amorti[sz]ation|اهلاك|depr\.?|amort\.?/i, 'depreciation'],
-  [/نقدية|نقد|صندوق|بنك|cash|bank|visa|mastercard|knet|حساب\s*جاري|شيكات|card|current\s*account/i, 'cash'],
+  [/نقدية|نقد|صندوق|بنك|cash|bank|visa|mastercard|knet|حساب\s*جاري|شيكات|card|current\s*account(?!.*partner)/i, 'cash'],
   [/مخزون|inventory|stock|بضاعة|مواد\s*خام|raw\s*material|finished\s*goods|merchandise/i, 'inventory'],
   [/مقدم|مقدماً|prepaid|مصروفات\s*مقدمة|مصروف\s*مقدم|تأمين\s*مقدم|prepayments?|prepaid\s*expenses?/i, 'prepaid'],
   [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property|plant|أصول\s*ثابتة|fa\s*[-–—]\s*historical|fixed\s*assets|pp&e|decoration|ديكور|computer|حاسوب|furniture\s*&\s*fixtures/i, 'ppe'],
   [/غير ملموس|شهرة|براءة|intangible|goodwill|patent|trademark|copyright|licenses?|franchise|trade\s*mark|online/i, 'intangible'],
-  [/مستحق|accrued|مصروفات\s*مستحقة|مستحقات\s*موظفين|accruals?|accrued\s*expenses?/i, 'accrued'],
   [/قرض.*قصير|short.?term loan|سلف\s*قصيرة|قروض\s*قصيرة|short\s*term\s*borrowings|current\s*portion/i, 'st_loan'],
   [/قرض.*طويل|long.?term loan|قروض\s*طويلة|سلف\s*طويلة|long\s*term\s*borrowings|long\s*term\s*debt|notes\s*payable/i, 'lt_loan'],
   [/مكافأة|نهاية الخدمة|end of service|gratuity|تعويضات\s*نهاية\s*خدمة|employee\s*benefits|pension|provident/i, 'eosb'],
-  [/رأس المال|capital stock|share capital|رأس\s*مال|اسهم\s*رأسمالية|common\s*stock|preferred\s*stock|paid-up\s*capital/i, 'capital'],
   [/احتياطي|reserve|احتياطيات|احتياطي\s*قانوني|legal\s*reserve|statutory\s*reserve/i, 'reserves'],
   [/أرباح مبقاة|retained earnings|ارباح\s*محتجزة|retained\s*earnings|accumulated\s*profits|undistributed\s*profits/i, 'retained'],
   [/توزيعات|dividends?|ارباح\s*موزعة|توزيع\s*ارباح|cash\s*dividend|stock\s*dividend/i, 'dividends'],
-  [/\b(?:revenue|sales|مبيعات|إيرادات|ايرادات\s*تشغيلية|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|turnover|income\s*from\s*operations)(?!\s*[-–—]\s*[A-Z])/i, 'revenue'],
+  [/\b(?:revenue|sales|مبيعات|إيرادات|ايرادات\s*تشغيلية|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|turnover|income\s*from\s*operations)(?!\s*[-–—]\s*[A-Z])(?!.*(?:capital|partner))/i, 'revenue'],
   [/إيرادات أخرى|other income|non-operating\s*income|investment\s*income|interest\s*income|rental\s*income|gain\s*on\s*sale|dividend\s*income/i, 'other_income'],
   [/تكلفة المبيعات|cost of (goods|sales)|cogs|تكلفة\s*البضاعة|مشتريات|direct\s*cost|cost\s*of\s*sales|purchases|freight\s*in/i, 'cogs'],
   [/تمويل|فوائد|فائدة|interest expense|finance cost|مصاريف\s*تمويلية|bank\s*charges|loan\s*interest|borrowing\s*cost/i, 'finance_cost'],
@@ -462,11 +471,9 @@ function classifyAccount(name, debit = 0, credit = 0) {
   
   // ---- ÉTAPE 2 : SI C'EST UN COMPTE FOURNISSEUR, ON AJUSTE SELON LE SOLDE ----
   if (bestMatch === 'supplier_account') {
-    // Si le solde est débiteur (debit > credit) => avance à un fournisseur
     if (debit > credit) {
       return 'prepaid_to_supplier';
     }
-    // Si le solde est créditeur => fournisseur (ap)
     return 'ap';
   }
   
@@ -475,16 +482,20 @@ function classifyAccount(name, debit = 0, credit = 0) {
   // ---- ÉTAPE 3 : FALLBACK BASÉ SUR LA NATURE DU COMPTE ----
   // Compte avec solde créditeur uniquement
   if (credit > 0 && debit === 0) {
-    // Vérifier si c'est un passif
-    const liabilityKeywords = /قرض|سلف|دائن|مورد|مستحق|مكافأة|ضريبة|زكاة|loan|payable|accrued|liability|debt|credit|supplier|vendor|tax|zakat|gratuity|end of service|note|bond|refundable|deposit/i;
+    // Vérifier si c'est un passif ou capital
+    if (/capital|رأس\s*المال|رأس\s*مال|partner|شريك|شركاء|current\s*account|جاري|حساب/.test(trimmedName)) {
+      if (/partner|شريك|شركاء|current\s*account|جاري|حساب/.test(trimmedName)) return 'partner_current';
+      return 'capital';
+    }
+    const liabilityKeywords = /قرض|سلف|دائن|مورد|مستحق|مكافأة|ضريبة|زكاة|loan|payable|accrued|liability|debt|credit|supplier|vendor|tax|zakat|gratuity|end of service|note|bond|refundable|deposit|salaries|رواتب|أجور/i;
     if (liabilityKeywords.test(trimmedName)) {
       if (/payable|supplier|vendor|creditor|دائن|مورد/.test(trimmedName)) return 'ap';
+      if (/accrued|مستحق|salaries|رواتب|أجور/.test(trimmedName)) return 'accrued';
       if (/refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) return 'other_cl';
       if (/loan|borrowing|قرض|سلف/.test(trimmedName)) {
         if (/short|current|قصير|جاري/.test(trimmedName)) return 'st_loan';
         return 'lt_loan';
       }
-      if (/accrued|مستحق/.test(trimmedName)) return 'accrued';
       if (/tax|zakat|ضريبة|زكاة/.test(trimmedName)) return 'tax';
       if (/gratuity|end of service|مكافأة/.test(trimmedName)) return 'eosb';
       return 'other_cl';
@@ -499,7 +510,7 @@ function classifyAccount(name, debit = 0, credit = 0) {
     if (assetKeywords.test(trimmedName)) {
       if (/tp\s*[-–—]|supplier|vendor|fournisseur|مورد/.test(trimmedName)) return 'prepaid_to_supplier';
       if (/tr\s*[-–—]|receivable|customer|عملاء|مدين|debtor|corp|inc|llc|ltd|company|شركة|trainers/.test(trimmedName)) return 'ar';
-      if (/cash|bank|نقد|بنك|card|visa|mastercard|حساب|جاري/.test(trimmedName)) return 'cash';
+      if (/cash|bank|نقد|بنك|card|visa|mastercard|حساب|جاري(?!.*partner)/.test(trimmedName)) return 'cash';
       if (/refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) return 'other_ca';
       if (/inventory|stock|مخزون|بضاعة/.test(trimmedName)) return 'inventory';
       if (/prepaid|مقدم/.test(trimmedName)) return 'prepaid';
@@ -509,8 +520,9 @@ function classifyAccount(name, debit = 0, credit = 0) {
       return 'other_ca';
     }
     // Sinon c'est probablement une charge
-    const expenseKeywords = /مصاريف|مصروفات|expense|إهلاك|استهلاك|depreciation|تكلفة|cost|بيعي|تسويق|إداري|عمومي|تمويل|فوائد|interest|ضريبة|زكاة|tax|salary|راتب|wage|أجر|rent|إيجار|utilities|مرافق|insurance|تأمين|maintenance|صيانة|repair|إصلاح|advertising|إعلان|promotion|ترويج|commission|عمولة|brokerage|وساطة|legal|قانوني|consulting|استشاري|audit|تدقيق|professional|مهني|travel|سفر|entertainment|ترفيه|office|مكتب|supplies|لوازم|marketing|تسويق|admin|إداري|selling|بيعي|general|عمومي|other|أخرى|miscellaneous|متفرقة/i;
+    const expenseKeywords = /مصاريف|مصروفات|expense|إهلاك|استهلاك|depreciation|تكلفة|cost|بيعي|تسويق|إداري|عمومي|تمويل|فوائد|interest|ضريبة|زكاة|tax|salary|راتب|wage|أجر|rent|إيجار|utilities|مرافق|insurance|تأمين|maintenance|صيانة|repair|إصلاح|advertising|إعلان|promotion|ترويج|commission|عمولة|brokerage|وساطة|legal|قانوني|consulting|استشاري|audit|تدقيق|professional|مهني|travel|سفر|entertainment|ترفيه|office|مكتب|supplies|لوازم|marketing|تسويق|admin|إداري|selling|بيعي|general|عمومي|other|أخرى|miscellaneous|متفرقة|accrued|مستحق|salaries|رواتب/i;
     if (expenseKeywords.test(trimmedName)) {
+      if (/accrued|مستحق|salaries|رواتب|أجور|payable/.test(trimmedName)) return 'accrued';
       if (/selling|marketing|admin|general|بيعي|تسويق|إداري|عمومي|sga|salary|راتب|wage|rent|إيجار|utilities|insurance|maintenance|repair|advertising|promotion|commission|office|travel|entertainment/.test(trimmedName)) return 'sga';
       if (/depreciation|amortization|إهلاك|استهلاك/.test(trimmedName)) return 'depreciation';
       if (/finance|interest|تمويل|فوائد/.test(trimmedName)) return 'finance_cost';
@@ -528,10 +540,12 @@ function classifyAccount(name, debit = 0, credit = 0) {
   // Dernier recours
   if (/revenue|sales|income|إيرادات|مبيعات|دخل/.test(trimmedName)) return 'revenue';
   if (/expense|cost|مصاريف|مصروفات|تكلفة/.test(trimmedName)) return 'other_expense';
+  if (/partner|شريك|شركاء|current|جاري/.test(trimmedName)) return 'partner_current';
+  if (/capital|رأس\s*المال/.test(trimmedName)) return 'capital';
   if (/tr\s*[-–—]|tp\s*[-–—]|receivable|مدين|عملاء|customer|corp|inc|llc|company|trainers/.test(trimmedName)) return 'ar';
   if (/asset|أصول|مخزون|نقد|بنك|استثمار/.test(trimmedName)) return 'other_ca';
   if (/liability|payable|loan|قرض|دائن|مورد|التزام/.test(trimmedName)) return 'other_cl';
-  if (/equity|capital|retained|reserve|ملكية|رأس|احتياطي|أرباح/.test(trimmedName)) return 'capital';
+  if (/equity|retained|reserve|ملكية|احتياطي|أرباح/.test(trimmedName)) return 'capital';
   
   return '';
 }
@@ -1045,15 +1059,18 @@ function computeStatements(accounts, tbTotals){
   const totalLiabilities = currentLiabTotal + nonCurrentLiabTotal;
 
   const capitalTotal = sumCat(accounts, 'capital');
+  const partnerCurrentTotal = sumCat(accounts, 'partner_current');
   const reservesTotal = sumCat(accounts, 'reserves');
   const retainedTotal = sumCat(accounts, 'retained');
   const dividendsTotal = sumCat(accounts, 'dividends');
+  
   const equityItems = linesForCat(accounts, 'capital')
+    .concat(linesForCat(accounts, 'partner_current'))
     .concat(linesForCat(accounts, 'reserves'))
     .concat(linesForCat(accounts, 'retained'))
     .concat([{label:'صافي ربح الفترة الحالية', amount: netIncome}]);
   if(dividendsTotal !== 0) equityItems.push({label:'توزيعات أرباح (مخصومة)', amount: -dividendsTotal});
-  const totalEquity = capitalTotal + reservesTotal + retainedTotal + netIncome - dividendsTotal;
+  const totalEquity = capitalTotal + partnerCurrentTotal + reservesTotal + retainedTotal + netIncome - dividendsTotal;
   const totalLiabEquity = totalLiabilities + totalEquity;
 
   const balance_sheet = {
@@ -1072,7 +1089,8 @@ function computeStatements(accounts, tbTotals){
 
   const cfFinancingLines = [];
   if(dividendsTotal) cfFinancingLines.push({label:'توزيعات أرباح مدفوعة', amount: -dividendsTotal});
-  const cfFinancingTotal = -dividendsTotal;
+  if(partnerCurrentTotal > 0) cfFinancingLines.push({label:'إضافة: حساب الشركاء الجاري', amount: partnerCurrentTotal});
+  const cfFinancingTotal = -dividendsTotal + partnerCurrentTotal;
 
   const cash_flow = {
     operating: {lines: cfOperatingLines, total: cfOperatingTotal},
@@ -1101,13 +1119,17 @@ function computeStatements(accounts, tbTotals){
   if(arTotal || apTotal){
     notes.push({title:'أرصدة العملاء والموردين', content: `حسابات مدينة (عملاء) ${fmt(arTotal)}، وحسابات دائنة (موردون) ${fmt(apTotal)}.`});
   }
+  if(partnerCurrentTotal){
+    notes.push({title:'حسابات الشركاء الجارية', content: `إجمالي أرصدة حسابات الشركاء الجارية ${fmt(partnerCurrentTotal)}، والتي تظهر ضمن حقوق الملكية.`});
+  }
 
   const accounting_policies = [
     'تُعرض الأصول الثابتة بالتكلفة التاريخية مخصوماً منها مجمع الإهلاك المتراكم.',
     'يُثبت المخزون بالتكلفة أو صافي القيمة القابلة للتحقق أيهما أقل.',
     'تُحمّل الإيرادات والمصروفات على أساس مبدأ الاستحقاق المحاسبي.',
     'أُضيف صافي ربح الفترة الحالية إلى رصيد الأرباح المبقاة الظاهر بميزان المراجعة (المفترض أنه رصيد أول المدة) للوصول إلى الرصيد الختامي في قائمة المركز المالي.',
-    'تم تصنيف أرصدة الموردين المدينة (أي التي لها رصيد مدين) كدفعات مقدمة للموردين ضمن الأصول المتداولة، وذلك وفقاً لمبدأ المقابلة المحاسبية.'
+    'تم تصنيف أرصدة الموردين المدينة (أي التي لها رصيد مدين) كدفعات مقدمة للموردين ضمن الأصول المتداولة، وذلك وفقاً لمبدأ المقابلة المحاسبية.',
+    'تم تصنيف حسابات الشركاء الجارية (Partner Current Accounts) ضمن حقوق الملكية، حيث تمثل استثمارات الشركاء في المنشأة.'
   ];
 
   // ---- Analytical report ----
@@ -1143,7 +1165,8 @@ function computeStatements(accounts, tbTotals){
   const assumptions_used = [
     'الرصيد الظاهر لحساب الأرباح المبقاة في ميزان المراجعة اعتُبر رصيداً افتتاحياً (أول المدة)، وأُضيف إليه صافي ربح الفترة للوصول للرصيد الختامي.',
     'قائمة التدفقات النقدية معروضة بشكل جزئي (صافي الربح + الإهلاك المضاف)؛ إذ يتعذر احتساب التغيرات في بنود رأس المال العامل (المدينون، المخزون، الدائنون) أو حركة الأصول الثابتة والقروض دون توفر أرصدة الفترة السابقة للمقارنة. للحصول على قائمة تدفقات نقدية كاملة، يُرجى توفير ميزان مراجعة للفترة السابقة أيضاً.',
-    'تم تصنيف أرصدة الموردين المدينة (ذات الرصيد المدين) كدفعات مقدمة للموردين ضمن الأصول المتداولة.'
+    'تم تصنيف أرصدة الموردين المدينة (ذات الرصيد المدين) كدفعات مقدمة للموردين ضمن الأصول المتداولة.',
+    'تم تصنيف حسابات الشركاء الجارية (Partner Current Accounts) ضمن حقوق الملكية.'
   ];
 
   return {
