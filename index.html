@@ -3,60 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة تحليل ميزان المراجعة والقوائم المالية</title>
-    <!-- مكتبة قراءة ملفات الإكسيل SheetJS -->
+    <title>منصة التحليل المالي الذكي (Gemini AI)</title>
+    <!-- مكتبة قراءة ملفات الإكسيل -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary-color: #1e3a8a;
             --secondary-color: #2563eb;
-            --success-color: #16a34a;
+            --ai-color: #7c3aed;
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
-            --text-color: #1e293b;
             --border-color: #e2e8f0;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
-            color: var(--text-color);
+            color: #1e293b;
             margin: 0;
             padding: 20px;
         }
 
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-        }
+        .container { max-width: 1000px; margin: 0 auto; }
 
-        header {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-
-        header h1 {
-            color: var(--primary-color);
-            margin-bottom: 8px;
-        }
+        header { text-align: center; margin-bottom: 25px; }
+        header h1 { color: var(--primary-color); margin-bottom: 5px; }
 
         .card {
             background-color: var(--card-bg);
             border-radius: 12px;
             padding: 25px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             border: 1px solid var(--border-color);
         }
 
-        input[type="file"] {
-            display: none;
+        .api-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-top: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
         }
+
+        input[type="file"] { display: none; }
 
         .btn {
             background-color: var(--secondary-color);
             color: white;
-            padding: 10px 22px;
+            padding: 12px 24px;
             border-radius: 6px;
             border: none;
             font-size: 15px;
@@ -65,39 +62,19 @@
             margin: 5px;
         }
 
-        .btn-success { background-color: var(--success-color); }
-        .btn-secondary { background-color: #64748b; }
-
-        .mapping-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-            background-color: #f1f5f9;
-            padding: 15px;
-            border-radius: 8px;
+        .btn-ai {
+            background-color: var(--ai-color);
+            font-size: 16px;
+            width: 100%;
+            padding: 14px;
         }
 
-        .mapping-item {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        select {
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-            font-size: 14px;
-        }
-
-        .alert {
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 15px;
+        .loader {
             display: none;
             text-align: center;
+            margin: 15px 0;
             font-weight: bold;
+            color: var(--ai-color);
         }
 
         .nav-tabs {
@@ -128,22 +105,13 @@
             background-color: var(--card-bg);
             padding: 20px;
             border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
 
         .tab-content.active { display: block; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        th, td {
-            border: 1px solid var(--border-color);
-            padding: 10px;
-            text-align: right;
-        }
-
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid var(--border-color); padding: 10px; text-align: right; }
         th { background-color: #f8fafc; color: var(--primary-color); }
         .total-row { font-weight: bold; background-color: #f1f5f9; }
     </style>
@@ -152,47 +120,30 @@
 
 <div class="container">
     <header>
-        <h1>محلل ميزان المراجعة واستخراج القوائم المالية</h1>
-        <p>قم برفع الملف وتحديد الأعمدة للحصول على التقرير الدقيق</p>
+        <h1>نظام التقرير المالي الذكي (مُعزز بـ AI)</h1>
+        <p>تحليل ميزان المراجعة بالذكاء الاصطناعي وتوليد القوائم المالية المعتمدة تلقائياً</p>
     </header>
 
-    <!-- 1. رفع الملف -->
-    <div class="card" style="text-align: center;">
-        <h3>الخطوة 1: رفع ملف ميزان المراجعة</h3>
-        <button class="btn" onclick="document.getElementById('fileInput').click()">اختيار ملف Excel / CSV</button>
-        <button class="btn btn-secondary" onclick="loadDemoData()">تجربة ببيانات تجريبية</button>
-        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="handleFileSelect(event)">
-        <div id="fileName" style="margin-top: 10px; font-weight: bold;"></div>
-    </div>
+    <!-- إعداد المفتاح والملف -->
+    <div class="card">
+        <label><strong>1. أدخل مفتاح Gemini API الخاص بك:</strong></label>
+        <input type="password" id="apiKey" class="api-input" placeholder="AIzaSy...">
+        <small style="color: #64748b;">(يمكنك الحصول عليه مجاناً من Google AI Studio)</small>
 
-    <!-- 2. ربط الأعمدة (Mapping) -->
-    <div class="card" id="mappingCard" style="display: none;">
-        <h3>الخطوة 2: مطابقة أعمدة ملفك</h3>
-        <p>اختر الأعمدة المقابلة من ملف الإكسيل لضمان قراءة المبالغ بشكل صحيح:</p>
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--border-color);">
+
+        <label><strong>2. رفع ميزان المراجعة (Excel / CSV):</strong></label><br><br>
+        <button class="btn" onclick="document.getElementById('fileInput').click()">اختر ملف الإكسيل</button>
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="readExcelFile(event)">
+        <span id="fileName" style="margin-right: 10px; font-weight: bold;"></span>
+
+        <br><br>
+        <button class="btn btn-ai" onclick="analyzeWithAI()">التحليل بواسطة الذكاء الاصطناعي واستخراج التقرير ✨</button>
         
-        <div class="mapping-grid">
-            <div class="mapping-item">
-                <label>عمود اسم / بيان الحساب:</label>
-                <select id="colAccount"></select>
-            </div>
-            <div class="mapping-item">
-                <label>عمود المدين (Debit):</label>
-                <select id="colDebit"></select>
-            </div>
-            <div class="mapping-item">
-                <label>عمود الدائن (Credit):</label>
-                <select id="colCredit"></select>
-            </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 20px;">
-            <button class="btn btn-success" onclick="generateFinancialStatements()">قم بإنشاء التقرير الآن</button>
-        </div>
+        <div id="loader" class="loader">جاري تحليل البيانات بواسطة Gemini AI... قد يستغرق ذلك بضع ثوانٍ ⏳</div>
     </div>
 
-    <div id="statusAlert" class="alert"></div>
-
-    <!-- 3. عرض النتائج -->
+    <!-- التبويبات لعرض التقرير -->
     <div class="nav-tabs" id="tabsHeader" style="display: none;">
         <button class="tab-btn active" onclick="switchTab(event, 'incomeTab')">قائمة الدخل</button>
         <button class="tab-btn" onclick="switchTab(event, 'balanceTab')">المركز المالي</button>
@@ -225,177 +176,145 @@
     </div>
 
     <div id="notesTab" class="tab-content">
-        <h2>الإيضاحات والملاحظات</h2>
-        <ul id="notesList" style="line-height: 1.8;"></ul>
+        <h2>الإيضاحات والملاحظات المالية</h2>
+        <div id="notesContent" style="line-height: 1.8;"></div>
     </div>
 </div>
 
 <script>
-    let sheetData = [];
+    let fileTextData = "";
 
-    // قراءة الملف
-    function handleFileSelect(e) {
+    // قراءة ملف الإكسيل وتحويله إلى نص عريض للذكاء الاصطناعي
+    function readExcelFile(e) {
         const file = e.target.files[0];
         if (!file) return;
 
         document.getElementById('fileName').textContent = `الملف المرفوع: ${file.name}`;
-        
+
         const reader = new FileReader();
         reader.onload = function(e) {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, {type: 'array'});
             const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            sheetData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-
-            if (sheetData.length > 0) {
-                populateColumnSelectors();
-                document.getElementById('mappingCard').style.display = 'block';
-                showAlert('تم قراءة الملف! يرجى التأكد من مطابقة الأعمدة ثم اضغط إنشاء التقرير.', '#dbeafe', '#1e40af');
-            }
+            
+            // تحويل ورقة العمل إلى نص CSV لسهولة قراءته بالذكاء الاصطناعي
+            fileTextData = XLSX.utils.sheet_to_csv(worksheet);
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // تعبئة خيارات الأعمدة بناءً على صف العناوين الأول
-    function populateColumnSelectors() {
-        const headers = sheetData[0] || [];
-        const selectors = ['colAccount', 'colDebit', 'colCredit'];
-        
-        selectors.forEach(id => {
-            const select = document.getElementById(id);
-            select.innerHTML = '<option value="-1">-- غير محدد --</option>';
-            headers.forEach((h, idx) => {
-                let option = document.createElement('option');
-                option.value = idx;
-                option.textContent = h || `العمود ${idx + 1}`;
-                select.appendChild(option);
-            });
-        });
-
-        // محاولة التخمين الآلي للأعمدة
-        headers.forEach((h, idx) => {
-            let title = String(h).toLowerCase();
-            if (title.includes('حساب') || title.includes('اسم') || title.includes('بيان') || title.includes('account')) {
-                document.getElementById('colAccount').value = idx;
-            }
-            if (title.includes('مدين') || title.includes('debit')) {
-                document.getElementById('colDebit').value = idx;
-            }
-            if (title.includes('دائن') || title.includes('credit')) {
-                document.getElementById('colCredit').value = idx;
-            }
-        });
-    }
-
-    // بيانات تجريبية
-    function loadDemoData() {
-        sheetData = [
-            ["اسم الحساب", "المدين", "الدائن"],
-            ["إيراد المبيعات", 0, 200000],
-            ["تكلفة المبيعات", 110000, 0],
-            ["مصروفات إدارية وروااتب", 30000, 0],
-            ["مصروف إيجار", 10000, 0],
-            ["النقدية بالبنك والإنقود", 80000, 0],
-            ["العملاء والذمم المدينة", 40000, 0],
-            ["الأصول الثابتة والآلات", 120000, 0],
-            ["الموردون والذمم الدائنة", 0, 50000],
-            ["رأس المال", 0, 140000]
-        ];
-        document.getElementById('fileName').textContent = 'تم تحميل نموذج بيانات اختباري';
-        populateColumnSelectors();
-        document.getElementById('mappingCard').style.display = 'block';
-        showAlert('تم تحميل نموذج الاختبار. اضغط "قم بإنشاء التقرير الآن".', '#dbeafe', '#1e40af');
-    }
-
-    function parseNum(val) {
-        if (!val) return 0;
-        let num = parseFloat(String(val).replace(/,/g, '').trim());
-        return isNaN(num) ? 0 : num;
-    }
-
-    // حساب وإنشاء القوائم المالية
-    function generateFinancialStatements() {
-        const accIdx = parseInt(document.getElementById('colAccount').value);
-        const debIdx = parseInt(document.getElementById('colDebit').value);
-        const creIdx = parseInt(document.getElementById('colCredit').value);
-
-        if (accIdx === -1) {
-            showAlert('يرجى تحديد عمود "اسم / بيان الحساب" على الأقل!', '#fee2e2', '#991b1b');
+    // إرسال البيانات إلى API الذكاء الاصطناعي
+    async function analyzeWithAI() {
+        const apiKey = document.getElementById('apiKey').value.trim();
+        if (!apiKey) {
+            alert("يرجى إدخال مفتاح Gemini API أولاً!");
             return;
         }
 
-        let revenues = 0, expenses = 0;
-        let assets = 0, liabilities = 0, equity = 0;
-        let cash = 0, receivables = 0;
-
-        // التكرار على الصفوف (باستثناء صف العناوين الأول)
-        for (let i = 1; i < sheetData.length; i++) {
-            const row = sheetData[i];
-            if (!row || !row[accIdx]) continue;
-
-            const accName = String(row[accIdx]).trim();
-            const debit = debIdx !== -1 ? parseNum(row[debIdx]) : 0;
-            const credit = creIdx !== -1 ? parseNum(row[creIdx]) : 0;
-            const net = debit - credit;
-            const absVal = Math.abs(net) || Math.max(debit, credit);
-
-            const text = accName.toLowerCase();
-
-            if (text.includes('إيراد') || text.includes('ايراد') || text.includes('مبيعات') || text.includes('ارباح') || text.includes('أرباح')) {
-                revenues += (credit > 0 ? credit : absVal);
-            } else if (text.includes('مصروف') || text.includes('تكلفة') || text.includes('رواتب') || text.includes('ايجار') || text.includes('إيجار') || text.includes('مشتريات')) {
-                expenses += (debit > 0 ? debit : absVal);
-            } else if (text.includes('نقدية') || text.includes('بنك') || text.includes('صندوق') || text.includes('كاش')) {
-                cash += absVal;
-                assets += absVal;
-            } else if (text.includes('عملاء') || text.includes('مدينة') || text.includes('ذمم')) {
-                receivables += absVal;
-                assets += absVal;
-            } else if (text.includes('أصول') || text.includes('اصول') || text.includes('معدات') || text.includes('سيارات') || text.includes('بضاعة')) {
-                assets += absVal;
-            } else if (text.includes('موردين') || text.includes('دائنة') || text.includes('قروض') || text.includes('التزامات')) {
-                liabilities += absVal;
-            } else if (text.includes('رأس المال') || text.includes('راس المال') || text.includes('حقوق الملكية')) {
-                equity += absVal;
-            }
+        if (!fileTextData) {
+            alert("يرجى رفع ملف ميزان المراجعة أولاً!");
+            return;
         }
 
-        const netIncome = revenues - expenses;
-        const totalEquity = equity + netIncome;
+        document.getElementById('loader').style.display = 'block';
 
+        const promptText = `
+أنت خبير محاسبي ومالي. لديك بيانات ميزان المراجعة التالية بصيغة CSV:
+
+${fileTextData}
+
+المطلوب:
+قم بتحليل البيانات أعلاه واستخراج القوائم المالية بالكامل ثم قم بتقديم النتيجة بصيغة JSON فقط وبدون أي نصوص إضافية قبل أو بعد الـ JSON.
+
+الهيكل المطلوبة للـ JSON كالتالي:
+{
+  "incomeStatement": [
+    {"label": "إجمالي الإيرادات", "amount": 0},
+    {"label": "تكلفة المبيعات / المصروفات Direct", "amount": 0},
+    {"label": "المصروفات العمومية والبيعية", "amount": 0},
+    {"label": "صافي الربح / الخسارة", "amount": 0}
+  ],
+  "balanceSheet": [
+    {"label": "الأصول المتداولة (نقدية + عملاء)", "amount": 0},
+    {"label": "الأصول غير المتداولة (عقارات/معدات)", "amount": 0},
+    {"label": "إجمالي الأصول", "amount": 0},
+    {"label": "الالتزامات المتداولة والدائنين", "amount": 0},
+    {"label": "حقوق الملكية متضمنة ربح الفترة", "amount": 0},
+    {"label": "إجمالي الالتزامات وحقوق الملكية", "amount": 0}
+  ],
+  "cashFlow": [
+    {"label": "صافي الربح التشغيلي", "amount": 0},
+    {"label": "التغير في الذمم المدينة", "amount": 0},
+    {"label": "صافي النقدية بنهاية الفترة", "amount": 0}
+  ],
+  "notes": [
+    "ملاحظة 1 حول دقة التوازن",
+    "إيضاح حول رصيد النقدية والسيولة",
+    "ملاحظة حول ربحية المنشأة"
+  ]
+}
+`;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
+            });
+
+            const data = await response.json();
+            document.getElementById('loader').style.display = 'none';
+
+            let rawResponse = data.candidates[0].content.parts[0].text;
+            
+            // تنظيف النص للحصول على JSON فقط
+            rawResponse = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+            const result = JSON.parse(rawResponse);
+
+            renderReport(result);
+
+        } catch (error) {
+            document.getElementById('loader').style.display = 'none';
+            alert("حدث خطأ أثناء معالجة الذكاء الاصطناعي للبيانات. يرجى التأكد من صحة المفتاح وبنية الملف.");
+            console.error(error);
+        }
+    }
+
+    // عرض القوائم المالية المستخرجة
+    function renderReport(data) {
         // 1. قائمة الدخل
-        document.getElementById('incomeBody').innerHTML = `
-            <tr><td>إجمالي الإيرادات والمبيعات</td><td>${revenues.toLocaleString()}</td></tr>
-            <tr><td>إجمالي المصروفات والتكاليف</td><td>(${expenses.toLocaleString()})</td></tr>
-            <tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>${netIncome.toLocaleString()}</td></tr>
-        `;
+        let incomeHTML = "";
+        data.incomeStatement.forEach(row => {
+            incomeHTML += `<tr class="${row.label.includes('صافي') ? 'total-row' : ''}"><td>${row.label}</td><td>${row.amount.toLocaleString()}</td></tr>`;
+        });
+        document.getElementById('incomeBody').innerHTML = incomeHTML;
 
         // 2. المركز المالي
-        document.getElementById('balanceBody').innerHTML = `
-            <tr><td>الأصول (تشتمل النقدية والعملاء والأصول الثابتة)</td><td>${assets.toLocaleString()}</td></tr>
-            <tr class="total-row"><td>إجمالي الأصول</td><td>${assets.toLocaleString()}</td></tr>
-            <tr><td>الالتزامات (الموردين والديون)</td><td>${liabilities.toLocaleString()}</td></tr>
-            <tr><td>حقوق الملكية (متضمنة نتائج الفترة)</td><td>${totalEquity.toLocaleString()}</td></tr>
-            <tr class="total-row"><td>إجمالي الالتزامات وحقوق الملكية</td><td>${(liabilities + totalEquity).toLocaleString()}</td></tr>
-        `;
+        let balanceHTML = "";
+        data.balanceSheet.forEach(row => {
+            balanceHTML += `<tr class="${row.label.includes('إجمالي') ? 'total-row' : ''}"><td>${row.label}</td><td>${row.amount.toLocaleString()}</td></tr>`;
+        });
+        document.getElementById('balanceBody').innerHTML = balanceHTML;
 
         // 3. التدفقات النقدية
-        document.getElementById('cashBody').innerHTML = `
-            <tr><td>صافي الربح قبل التغيرات</td><td>${netIncome.toLocaleString()}</td></tr>
-            <tr><td>التغير في الذمم المدينة (العملاء)</td><td>(${receivables.toLocaleString()})</td></tr>
-            <tr class="total-row"><td>صافي النقدية المتوفرة في نهاية الفترة</td><td>${cash.toLocaleString()}</td></tr>
-        `;
+        let cashHTML = "";
+        data.cashFlow.forEach(row => {
+            cashHTML += `<tr class="${row.label.includes('صافي') ? 'total-row' : ''}"><td>${row.label}</td><td>${row.amount.toLocaleString()}</td></tr>`;
+        });
+        document.getElementById('cashBody').innerHTML = cashHTML;
 
         // 4. الملاحظات
-        document.getElementById('notesList').innerHTML = `
-            <li><strong>السياسات المحاسبية:</strong> تم حساب القوائم بناءً على مطابقة الأعمدة المحددة.</li>
-            <li><strong>السيولة والنقدية:</strong> يبلغ رصيد النقدية والبنوك <strong>${cash.toLocaleString()}</strong>.</li>
-            <li><strong>نتائج الأعمال:</strong> أظهرت قائمة الدخل تحقيق صافي أرباح بمقدار <strong>${netIncome.toLocaleString()}</strong>.</li>
-        `;
+        let notesHTML = "<ul>";
+        data.notes.forEach(note => {
+            notesHTML += `<li>${note}</li>`;
+        });
+        notesHTML += "</ul>";
+        document.getElementById('notesContent').innerHTML = notesHTML;
 
         document.getElementById('tabsHeader').style.display = 'flex';
         switchTab(null, 'incomeTab');
-        showAlert('تم استخراج القوائم المالية بنجاح!', '#dcfce7', '#15803d');
     }
 
     function switchTab(evt, tabId) {
@@ -408,14 +327,6 @@
         } else {
             document.querySelector('.tab-btn').classList.add('active');
         }
-    }
-
-    function showAlert(msg, bg, color) {
-        const a = document.getElementById('statusAlert');
-        a.style.display = 'block';
-        a.style.backgroundColor = bg;
-        a.style.color = color;
-        a.textContent = msg;
     }
 </script>
 
