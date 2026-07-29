@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مولد القوائم المالية — تصدير 7 شيتات Excel</title>
+<title>مولد القوائم المالية — تصدير 7 شيتات Excel و PDF متعدد الصفحات</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -212,10 +212,52 @@
 
   footer{ text-align:center; padding:20px; color:var(--ink-soft); font-size:12.5px;}
 
+  /* PDF Print Styles */
   @media print{
-    header.hero, .tb-tools, .gen-row, .tabs, .btn-excel, .btn-pdf, .developer-footer{ display:none !important;}
+    header.hero, .tb-tools, .gen-row, .tabs, .btn-excel, .btn-pdf, .developer-footer, .upload-zone{ display:none !important;}
     .tab-panel{ display:block !important; page-break-inside:avoid;}
-    body{ background:#fff;}
+    body{ background:#fff; margin:0; padding:0; }
+    .card{ box-shadow:none; border:1px solid #ddd; }
+    .stmt-table td{ border-bottom:1px solid #ddd; }
+    tr.subtotal td{ background:#f5f0e8; }
+    tr.grandtotal td{ background:#e4f1e9; }
+  }
+
+  /* PDF page break for export */
+  .pdf-page {
+    page-break-after: always;
+    padding: 30px 25px;
+    background: #fff;
+    min-height: 100vh;
+  }
+  .pdf-page:last-child {
+    page-break-after: avoid;
+  }
+  .pdf-page .page-header {
+    text-align: center;
+    border-bottom: 3px solid #A9782E;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  .pdf-page .page-header h2 {
+    color: #16241C;
+    font-size: 24px;
+    margin: 0;
+    font-family: 'Cairo', sans-serif;
+  }
+  .pdf-page .page-footer {
+    margin-top: 30px;
+    text-align: center;
+    font-size: 11px;
+    color: #7A8F7A;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+  }
+  .pdf-page .page-number {
+    font-size: 11px;
+    color: #7A8F7A;
+    text-align: center;
+    margin-top: 15px;
   }
 </style>
 </head>
@@ -402,81 +444,80 @@ const DEBIT_NATURE = new Set([
   'cogs','sga','depreciation','finance_cost','tax','other_expense','dividends'
 ]);
 
-// ====== نظام تصنيف متطور متوافق مع ميزان المراجعة الفعلي ======
+// ====== نظام تصنيف متطور ======
 const CLASSIFY_RULES = [
-  // ---- البنوك والنقد (Cash) ----
-  { regex: /\b(?:KFH|Warba|Nbk|Bank|VISA|CARD|كاش|نقد|صندوق|cash|bank|card)\b/i, category: 'cash', priority: 95 },
+  // البنوك والنقد
+  { regex: /\b(?:KFH|Warba|Nbk|Bank|VISA|CARD|cash|bank|نقد|صندوق|حساب جاري)\b/i, category: 'cash', priority: 95 },
   { regex: /^11120[0-9]|^11121[0-9]/, category: 'cash', priority: 90 },
   
-  // ---- العملاء - حسابات مدينة (AR) ----
+  // العملاء - حسابات مدينة
   { regex: /\bTR\s*[-–—]\s*|^11210[0-9]/, category: 'ar', priority: 95 },
   { regex: /\b(?:ACTIVTRADES|MULTILP|UPayments|SADAD|receivable|مدينون|عملاء)\b/i, category: 'ar', priority: 90 },
-  { regex: /^112101|^112102|^112103|^112104/, category: 'ar', priority: 95 },
   
-  // ---- الموردون - حسابات دائنة (AP) ----
+  // الموردون - حسابات دائنة
   { regex: /\bTP\s*[-–—]\s*|^21110[0-9]|^21111[0-9]|^21112[0-9]|^21113[0-9]/, category: 'ap', priority: 95 },
   { regex: /\b(?:supplier|vendor|مورد|دائن|payable)\b/i, category: 'ap', priority: 90 },
   
-  // ---- المصروفات المدفوعة مقدماً (Prepaid) ----
+  // المصروفات المدفوعة مقدماً
   { regex: /\b(?:Prepaid\s*Expenses|Prepaid\s*Expenses-|مصروفات\s*مدفوعة\s*مقدما|Prepaid\s+Expenses?)\b/i, category: 'prepaid', priority: 95 },
   { regex: /^11240[0-9]/, category: 'prepaid', priority: 90 },
   
-  // ---- المخزون (Inventory) ----
+  // المخزون
   { regex: /\b(?:Inventory|inventory|مخزون|raw material|بضاعة|stock)\b/i, category: 'inventory', priority: 90 },
   { regex: /^11510[0-9]/, category: 'inventory', priority: 85 },
   
-  // ---- الأصول المتداولة الأخرى ----
-  { regex: /\b(?:Refundable Deposits|تأمينات مستردة|investment\s*[-–—]\s*treading|استثمارات|Due from|مستحق\s*من)\b/i, category: 'other_ca', priority: 80 },
+  // الأصول المتداولة الأخرى
+  { regex: /\b(?:Refundable Deposits|تأمينات مستردة|investment|استثمارات|Due from|مستحق\s*من)\b/i, category: 'other_ca', priority: 80 },
   { regex: /^112001|^115103|^115113/, category: 'other_ca', priority: 85 },
   
-  // ---- الأصول الثابتة (PPE) ----
-  { regex: /\bFA\s*[-–—]\s*Historical Cost|^12110[0-9]|^12110[0-9]/, category: 'ppe', priority: 95 },
+  // الأصول الثابتة
+  { regex: /\bFA\s*[-–—]\s*Historical Cost|^12110[0-9]/, category: 'ppe', priority: 95 },
   { regex: /\b(?:Furniture|Fixtures|Computer Equipment|Decoration|fixed assets|أصول ثابتة|مباني|آلات|معدات)\b/i, category: 'ppe', priority: 90 },
   
-  // ---- مجمع الإهلاك (Accumulated Depreciation) ----
-  { regex: /\bFA\s*[-–—]\s*Accumulated Depreciation|^12130[0-9]|^12130[0-9]/, category: 'accum_dep', priority: 95 },
+  // مجمع الإهلاك
+  { regex: /\bFA\s*[-–—]\s*Accumulated Depreciation|^12130[0-9]/, category: 'accum_dep', priority: 95 },
   { regex: /\b(?:Accumulated Depreciation|Accumulated Amortization|مجمع\s*الاستهلاك|مجمع\s*الاطفاءات)\b/i, category: 'accum_dep', priority: 90 },
   
-  // ---- الأصول غير الملموسة ----
+  // الأصول غير الملموسة
   { regex: /\b(?:Trade Mark|Website|online|براءة|شهرة|علامة تجارية|intangible)\b/i, category: 'intangible', priority: 80 },
   
-  // ---- المصروفات المستحقة (Accrued Expenses) ----
+  // المصروفات المستحقة
   { regex: /\bAccrued Expenses|^21120[0-9]/, category: 'accrued', priority: 95 },
   { regex: /\b(?:Salaries|internet|Electricity|مستحقات|رواتب مستحقة|مصروفات مستحقة)\b/i, category: 'accrued', priority: 85 },
   
-  // ---- رأس المال ----
+  // رأس المال
   { regex: /\bCapital\s*[-–—]\s*|^31110[0-9]/, category: 'capital', priority: 95 },
   { regex: /\b(?:Capital|رأس المال|رأس مال)\b/i, category: 'capital', priority: 90 },
   
-  // ---- حساب الشريك الجاري ----
+  // حساب الشريك الجاري
   { regex: /\bPartner Current Account|^31210[0-9]/, category: 'partner_current', priority: 95 },
   { regex: /\b(?:Partner current|شريك جاري|شركاء جاري)\b/i, category: 'partner_current', priority: 90 },
   
-  // ---- الأرباح المبقاة ----
+  // الأرباح المبقاة
   { regex: /\bRetained Earnings|^319101/, category: 'retained', priority: 95 },
   { regex: /\b(?:Retained Earnings|ارباح محتفظ بها|أرباح مبقاة)\b/i, category: 'retained', priority: 90 },
   
-  // ---- الإيرادات ----
+  // الإيرادات
   { regex: /\b(?:training courses Revenue|Trading commission Revnue|Sales Refund|Revenue|مبيعات|إيرادات|ايرادات)\b(?!.*(?:cost|تكلفة|expense|مصروف))/i, category: 'revenue', priority: 85 },
-  { regex: /^41110[0-9]|^41110[0-9]/, category: 'revenue', priority: 85 },
+  { regex: /^41110[0-9]/, category: 'revenue', priority: 85 },
   
-  // ---- تكلفة المبيعات (COGS) ----
+  // تكلفة المبيعات
   { regex: /\bOE\s*[-–—]\s*Cost of Sales|^51110[0-9]/, category: 'cogs', priority: 95 },
   { regex: /\b(?:Cost of Sales|تكلفة المبيعات|Trainers Commissions|Labors|Subscriptions|Sadad commission)\b(?!.*(?:G&A|Staff|Professional|Marketing|Rent|Electricity|Cleaning|Hospitality|Stationery|License|Maintenance|Printings|Bank|Travelling|Telephone|Internet|zakat|Depreciation|Amortization))/i, category: 'cogs', priority: 85 },
   
-  // ---- المصروفات العمومية والإدارية (G&A) ----
+  // المصروفات العمومية والإدارية
   { regex: /\bG&A\s*[-–—]\s*|^52110[0-9]|^52120[0-9]|^52130[0-9]|^52140[0-9]/, category: 'sga', priority: 95 },
   { regex: /\b(?:Staff Costs|Salaries|Overtime|Residency|Health Insurance|Air Tickets|Social Security|Professional Services|Audit|Accounting Fees|Legal Consultancy|human resources|Marketing Expenses|Advertisement|Shop Rent|Electricity|Water|Cleaning|Hospitality|Stationery|License|Government Fees|Store Maintenance|Printings|Bank Charges|Travelling|Telephone|Mobile|Internet)\b/i, category: 'sga', priority: 85 },
   
-  // ---- مصروفات الزكاة ----
+  // مصروفات الزكاة
   { regex: /\bzakat expense|^521511/, category: 'tax', priority: 90 },
   { regex: /\b(?:zakat|زكاة|ضريبة|tax)\b/i, category: 'tax', priority: 80 },
   
-  // ---- مصروفات الإهلاك ----
+  // مصروفات الإهلاك
   { regex: /\bDepreciation Expense|Amortization Expense|^52310[0-9]/, category: 'depreciation', priority: 95 },
   { regex: /\b(?:Depreciation|Amortization|استهلاك|إهلاك|اطفاء)\b(?!.*(?:Accumulated|مجمع|متراكم))/i, category: 'depreciation', priority: 85 },
   
-  // ---- حسابات غير مصنفة افتراضياً ----
+  // حسابات غير مصنفة
   { regex: /^99999|Undistrubited/, category: 'retained', priority: 50 },
 ];
 
@@ -508,7 +549,7 @@ function classifyAccount(name, debit = 0, credit = 0) {
   
   if (bestMatch) return bestMatch;
   
-  // Fallback: تحليل الرصيد
+  // Fallback
   if (credit > 0 && debit === 0) {
     if (/Capital|رأس|Partner|Retained|احتياطي|reserve|ارباح|شريك/i.test(trimmedName)) {
       if (/Partner|شريك|جاري/i.test(trimmedName)) return 'partner_current';
@@ -564,7 +605,6 @@ function sampleRows(){
     ["Warba Bank", 39301, 0],
     ["NBK Bank", 5864, 0],
     ["TR - ACTIVTRADES CORP", 15252, 0],
-    ["TR - MULTILP COMPANY", 0, 0],
     ["Refundable Deposits", 250, 0],
     ["Inventory - raw material", 455, 0],
     ["Prepaid Expenses - Rent", 0, 0],
@@ -633,16 +673,13 @@ function detectColumns(json){
     }
   }
   
-  // البحث عن أعمدة الرصيد النهائي (End Balance)
   for(let i = 0; i < maxScan; i++){
     const row = (json[i] || []).map(c => String(c ?? '').trim());
     const hasEndBalance = row.some(c => /End Balance|رصيد نهائي/i.test(c));
     if(hasEndBalance){
-      // البحث عن Debit و Credit في نفس الصف
       const debitIdx = row.findIndex(c => /Debit|مدين/i.test(c) && !/End Balance|Initial|Jun/i.test(c));
       const creditIdx = row.findIndex(c => /Credit|دائن/i.test(c) && !/End Balance|Initial|Jun/i.test(c));
       if(debitIdx > -1 && creditIdx > -1){
-        // البحث عن عمود اسم الحساب
         const nameIdx = row.findIndex(c => /Account Name|Account|حساب|اسم/i.test(c));
         return {headerRowIdx: i, nameIdx: nameIdx > -1 ? nameIdx : 1, debitIdx, creditIdx};
       }
@@ -1503,53 +1540,136 @@ function exportToExcel() {
   XLSX.writeFile(wb, 'القوائم_المالية_الكاملة.xlsx');
 }
 
+// ====== EXPORT PDF - كل قائمة في صفحة منفصلة ======
 function exportToPDF() {
   if (!lastGeneratedData) {
     alert('الرجاء توليد القوائم المالية أولاً.');
     return;
   }
   
-  const printContent = document.createElement('div');
-  printContent.style.cssText = 'padding:20px; font-family:Tajawal,sans-serif; direction:rtl;';
-  printContent.innerHTML = `
-    <h1 style="text-align:center;color:#16241C;">القوائم المالية</h1>
-    <hr style="border:2px solid #A9782E;">
-    <div id="pdf-income">${renderIncomeStatement(lastGeneratedData.income_statement)}</div>
-    <hr style="border:1px solid #C9D9C3;margin:30px 0;">
-    <div id="pdf-balance">${renderBalanceSheet(lastGeneratedData.balance_sheet)}</div>
-    <hr style="border:1px solid #C9D9C3;margin:30px 0;">
-    <div id="pdf-cashflow">${renderCashFlow(lastGeneratedData.cash_flow)}</div>
-    <hr style="border:1px solid #C9D9C3;margin:30px 0;">
-    <div id="pdf-notes">${renderNotes(lastGeneratedData)}</div>
-    <hr style="border:1px solid #C9D9C3;margin:30px 0;">
-    <div id="pdf-analysis">${renderAnalysis(lastGeneratedData.analytical_report)}</div>
-    <hr style="border:2px solid #A9782E;margin:30px 0;">
-    <div style="text-align:center;font-size:12px;color:#7A8F7A;">
-      <p>تم التوليد بواسطة مولد القوائم المالية</p>
-      <p>أ. أحمد عبدالكريم — mr.ahmed22296@gmail.com — 60085043 / 01201487209</p>
+  const data = lastGeneratedData;
+  
+  // إنشاء عنصر لعرض المحتوى
+  const printContainer = document.createElement('div');
+  printContainer.style.cssText = 'padding:0; font-family:Tajawal,sans-serif; direction:rtl; background:#fff;';
+  printContainer.id = 'pdf-export-container';
+  
+  // وظيفة مساعدة لإنشاء صفحة PDF
+  function createPDFPage(title, contentHtml, pageNum, totalPages) {
+    return `
+      <div class="pdf-page" style="page-break-after:${pageNum < totalPages ? 'always' : 'avoid'}; padding:30px 25px; background:#fff; min-height:100vh;">
+        <div class="page-header" style="text-align:center; border-bottom:3px solid #A9782E; padding-bottom:12px; margin-bottom:20px;">
+          <h2 style="color:#16241C; font-size:24px; margin:0; font-family:'Cairo',sans-serif;">${title}</h2>
+        </div>
+        <div style="padding:0 10px;">
+          ${contentHtml}
+        </div>
+        <div class="page-footer" style="margin-top:30px; text-align:center; font-size:11px; color:#7A8F7A; border-top:1px solid #ddd; padding-top:10px;">
+          ${title} — صفحة ${pageNum} من ${totalPages}
+        </div>
+        <div style="text-align:center; font-size:10px; color:#7A8F7A; margin-top:5px;">
+          تم التوليد بواسطة مولد القوائم المالية | أ. أحمد عبدالكريم
+        </div>
+      </div>
+    `;
+  }
+  
+  // ====== صفحة 1: الفهرس ======
+  const indexHtml = `
+    <div class="pdf-page" style="page-break-after:always; padding:50px 30px; background:#fff; min-height:100vh; display:flex; flex-direction:column; justify-content:center;">
+      <div style="text-align:center; margin-bottom:40px;">
+        <h1 style="color:#16241C; font-size:32px; margin-bottom:5px; font-family:'Cairo',sans-serif;">القوائم المالية</h1>
+        <h2 style="color:#A9782E; font-size:22px; font-weight:400; margin-bottom:30px;">فهرس المحتويات</h2>
+        <div style="border-bottom:3px solid #A9782E; width:80px; margin:0 auto;"></div>
+      </div>
+      <div style="text-align:right; max-width:500px; margin:0 auto; font-size:18px; line-height:3;">
+        <p>📊 <strong>قائمة الدخل</strong> — صفحة 2</p>
+        <p>📊 <strong>المركز المالي</strong> — صفحة 3</p>
+        <p>📊 <strong>قائمة التدفقات النقدية</strong> — صفحة 4</p>
+        <p>📊 <strong>الإيضاحات المحاسبية</strong> — صفحة 5</p>
+        <p>📊 <strong>التقرير التحليلي</strong> — صفحة 6</p>
+        <p>📊 <strong>ملخص ميزان المراجعة</strong> — صفحة 7</p>
+      </div>
+      <div style="margin-top:40px; padding-top:20px; border-top:2px solid #A9782E; text-align:center; font-size:12px; color:#7A8F7A;">
+        <p>تم التوليد بواسطة مولد القوائم المالية</p>
+        <p>أ. أحمد عبدالكريم — mr.ahmed22296@gmail.com — 60085043 / 01201487209</p>
+        <p style="margin-top:10px; font-size:11px;">© 2026 جميع الحقوق محفوظة</p>
+      </div>
     </div>
   `;
+  printContainer.innerHTML = indexHtml;
   
-  document.body.appendChild(printContent);
+  // ====== صفحة 2: قائمة الدخل ======
+  const incomeHtml = renderIncomeStatement(data.income_statement);
+  printContainer.innerHTML += createPDFPage('قائمة الدخل', incomeHtml, 2, 7);
   
+  // ====== صفحة 3: المركز المالي ======
+  const balanceHtml = renderBalanceSheet(data.balance_sheet);
+  printContainer.innerHTML += createPDFPage('المركز المالي', balanceHtml, 3, 7);
+  
+  // ====== صفحة 4: قائمة التدفقات النقدية ======
+  const cashflowHtml = renderCashFlow(data.cash_flow);
+  printContainer.innerHTML += createPDFPage('قائمة التدفقات النقدية', cashflowHtml, 4, 7);
+  
+  // ====== صفحة 5: الإيضاحات المحاسبية ======
+  const notesHtml = renderNotes(data);
+  printContainer.innerHTML += createPDFPage('الإيضاحات المحاسبية', notesHtml, 5, 7);
+  
+  // ====== صفحة 6: التقرير التحليلي ======
+  const analysisHtml = renderAnalysis(data.analytical_report);
+  printContainer.innerHTML += createPDFPage('التقرير التحليلي', analysisHtml, 6, 7);
+  
+  // ====== صفحة 7: ملخص ميزان المراجعة ======
+  let tbHtml = '<table class="stmt-table" style="width:100%;border-collapse:collapse;font-size:14px;">';
+  tbHtml += '<thead><tr style="border-bottom:2px solid #A9782E;"><th style="padding:8px 6px;text-align:right;">#</th><th style="padding:8px 6px;text-align:right;">اسم الحساب</th><th style="padding:8px 6px;text-align:left;">مدين</th><th style="padding:8px 6px;text-align:left;">دائن</th><th style="padding:8px 6px;text-align:right;">التصنيف</th></tr></thead><tbody>';
+  rows.forEach((r, i) => {
+    if (r.name && r.name.trim() !== '') {
+      tbHtml += `<tr style="border-bottom:1px solid #ddd;"><td style="padding:6px 4px;">${i+1}</td><td style="padding:6px 4px;">${esc(r.name)}</td><td style="padding:6px 4px;text-align:left;font-family:'IBM Plex Mono',monospace;">${fmt(r.debit)}</td><td style="padding:6px 4px;text-align:left;font-family:'IBM Plex Mono',monospace;">${fmt(r.credit)}</td><td style="padding:6px 4px;">${r.cat || 'غير مصنف'}</td></tr>`;
+    }
+  });
+  tbHtml += '</tbody></table>';
+  tbHtml += '<div style="margin-top:20px;display:flex;gap:20px;flex-wrap:wrap;font-size:14px;">';
+  tbHtml += '<div style="background:#f5f0e8;border-radius:8px;padding:10px 16px;">إجمالي المدين: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(rows.reduce((s, r) => s + (Number(r.debit) || 0), 0)) + '</strong></div>';
+  tbHtml += '<div style="background:#f5f0e8;border-radius:8px;padding:10px 16px;">إجمالي الدائن: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(rows.reduce((s, r) => s + (Number(r.credit) || 0), 0)) + '</strong></div>';
+  const diff = rows.reduce((s, r) => s + (Number(r.debit) || 0), 0) - rows.reduce((s, r) => s + (Number(r.credit) || 0), 0);
+  tbHtml += '<div style="background:#f5f0e8;border-radius:8px;padding:10px 16px;">الفرق: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(diff) + '</strong></div>';
+  tbHtml += '<div style="background:' + (Math.abs(diff) < 0.01 ? '#E4F1E9' : '#F7E7E5') + ';border-radius:8px;padding:10px 16px;font-weight:700;">' + (Math.abs(diff) < 0.01 ? '✅ متوازن' : '⚠ غير متوازن') + '</div>';
+  tbHtml += '</div>';
+  
+  printContainer.innerHTML += createPDFPage('ملخص ميزان المراجعة', tbHtml, 7, 7);
+  
+  // إضافة إلى الصفحة
+  document.body.appendChild(printContainer);
+  
+  // خيارات PDF
   const opt = {
-    margin: [0.5, 0.5, 0.5, 0.5],
-    filename: 'القوائم_المالية.pdf',
+    margin: [0.4, 0.4, 0.4, 0.4],
+    filename: 'القوائم_المالية_الكاملة.pdf',
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, letterRendering: true },
-    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    html2canvas: { 
+      scale: 2, 
+      letterRendering: true,
+      useCORS: true,
+      logging: false
+    },
+    jsPDF: { 
+      unit: 'in', 
+      format: 'a4', 
+      orientation: 'portrait' 
+    },
+    pagebreak: { mode: ['css', 'legacy'] }
   };
   
-  html2pdf().set(opt).from(printContent).save().then(() => {
-    document.body.removeChild(printContent);
-  }).catch(() => {
-    document.body.removeChild(printContent);
+  html2pdf().set(opt).from(printContainer).save().then(() => {
+    document.body.removeChild(printContainer);
+  }).catch((err) => {
+    console.error('PDF Error:', err);
+    document.body.removeChild(printContainer);
     alert('حدث خطأ أثناء إنشاء PDF. حاول استخدام خيار الطباعة (Ctrl+P) بدلاً من ذلك.');
   });
 }
 
 loadSample();
 </script>
-
 </body>
 </html>
