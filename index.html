@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة تحليل ميزان المراجعة والقوائم المالية</title>
+    <!-- استدعاء مكتبة SheetJS لقراءة ملفات الإكسيل -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #1e3a8a;
+            --secondary-color: #3b82f6;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .upload-card {
+            background-color: var(--card-bg);
+            border: 2px dashed var(--secondary-color);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-card:hover {
+            background-color: #eff6ff;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn-upload {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 6px;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: bold;
+            color: #64748b;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+            background-color: var(--card-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            text-align: right;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: var(--primary-color);
+        }
+
+        .total-row {
+            font-weight: bold;
+            background-color: #f8fafc;
+        }
+
+        .notes-list {
+            line-height: 1.8;
+        }
+
+        .notes-list li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>نظام التحليل المالي واستخراج القوائم</h1>
+        <p>قم برفع ميزان المراجعة (Excel / CSV) للحصول على القوائم المالية والإيضاحات تلقائياً</p>
+    </header>
+
+    <!-- منطقة رفع الملف -->
+    <div class="upload-card" onclick="document.getElementById('fileInput').click()">
+        <h3>اضغط هنا لرفع ملف ميزان المراجعة</h3>
+        <p>يدعم صيغ (.xlsx, .xls, .csv)</p>
+        <button class="btn-upload">اختيار الملف</button>
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="handleFile(event)">
+    </div>
+
+    <!-- التبويبات لعرض النتائج -->
+    <div class="nav-tabs" id="tabsHeader" style="display: none;">
+        <button class="tab-btn active" onclick="switchTab('incomeTab')">قائمة الدخل</button>
+        <button class="tab-btn" onclick="switchTab('balanceTab')">المركز المالي</button>
+        <button class="tab-btn" onclick="switchTab('cashTab')">التدفقات النقدية</button>
+        <button class="tab-btn" onclick="switchTab('notesTab')">الإيضاحات والملاحظات</button>
+    </div>
+
+    <!-- 1. قائمة الدخل -->
+    <div id="incomeTab" class="tab-content">
+        <h2>قائمة الدخل (عن الفترة المنتهية)</h2>
+        <table id="incomeTable">
+            <thead>
+                <tr>
+                    <th>البيان</th>
+                    <th>المبلغ (د.ك / ر.س)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- 2. قائمة المركز المالي -->
+    <div id="balanceTab" class="tab-content">
+        <h2>قائمة المركز المالي (الميزانية العمومية)</h2>
+        <table id="balanceTable">
+            <thead>
+                <tr>
+                    <th>البيان</th>
+                    <th>المبلغ</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- 3. قائمة التدفقات النقدية -->
+    <div id="cashTab" class="tab-content">
+        <h2>قائمة التدفقات النقدية (الأسلوب غير المباشر)</h2>
+        <table id="cashTable">
+            <thead>
+                <tr>
+                    <th>النشاط / البيان</th>
+                    <th>المبلغ</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- 4. الإيضاحات والملاحظات -->
+    <div id="notesTab" class="tab-content">
+        <h2>الإيضاحات المتممة والملاحظات على التقرير</h2>
+        <ul class="notes-list" id="notesContent">
+            <!-- سيتم توليد الملاحظات ديناميكياً -->
+        </ul>
+    </div>
+</div>
+
+<script>
+    let rawData = [];
+
+    // معالجة قراءة ملف الإكسيل
+    function handleFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // تحويل البيانات إلى JSON
+            rawData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+            processTrialBalance(rawData);
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // تحليل بيانات ميزان المراجعة وترتيبها
+    function processTrialBalance(data) {
+        // متغيرات لتجميع الحسابات
+        let revenues = 0, expenses = 0;
+        let assets = 0, liabilities = 0, equity = 0;
+        let cash = 0, receivables = 0, payables = 0;
+
+        // خوارزمية تصنيف بسيطة بناءً على أرقام أو أسمء الحسابات
+        // نفترض أن الصفوف تحتوى على [اسم الحساب، مدين، دائن] أو [رقم الحساب، اسم الحساب، الرصيد]
+        data.forEach((row, index) => {
+            if (index === 0 || !row[0]) return; // تجاوز الترويسة
+
+            const accountName = String(row[0] || '').trim();
+            const debit = parseFloat(row[1]) || 0;
+            const credit = parseFloat(row[2]) || 0;
+            const netBalance = debit - credit;
+
+            // أمثلة منطقية للتصنيف بناءً على الكلمات المفتاحية
+            if (accountName.includes('إيراد') || accountName.includes('مبيعات')) {
+                revenues += (credit - debit);
+            } else if (accountName.includes('مصروف') || accountName.includes('تكلفة') || accountName.includes('رواتب')) {
+                expenses += (debit - credit);
+            } else if (accountName.includes('نقدية') || accountName.includes('بنك') || accountName.includes('صندوق')) {
+                cash += netBalance;
+                assets += netBalance;
+            } else if (accountName.includes('عملاء') || accountName.includes('مدينة')) {
+                receivables += netBalance;
+                assets += netBalance;
+            } else if (accountName.includes('أصول') || accountName.includes('معدات') || accountName.includes('سيارات')) {
+                assets += netBalance;
+            } else if (accountName.includes('موردين') || accountName.includes('دائنة') || accountName.includes('قروض')) {
+                liabilities += (credit - debit);
+            } else if (accountName.includes('رأس المال') || accountName.includes('أرباح مراحل')) {
+                equity += (credit - debit);
+            }
+        });
+
+        const netIncome = revenues - expenses;
+        const totalEquity = equity + netIncome;
+
+        // 1. ملء قائمة الدخل
+        document.querySelector('#incomeTable tbody').innerHTML = `
+            <tr><td>إجمالي الإيرادات</td><td>${revenues.toLocaleString()}</td></tr>
+            <tr><td>إجمالي المصروفات</td><td>(${expenses.toLocaleString()})</td></tr>
+            <tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>${netIncome.toLocaleString()}</td></tr>
+        `;
+
+        // 2. ملء قائمة المركز المالي
+        document.querySelector('#balanceTable tbody').innerHTML = `
+            <tr><td>الأصول (تشتمل النقدية والذمم والأصول الثابتة)</td><td>${assets.toLocaleString()}</td></tr>
+            <tr class="total-row"><td>إجمالي الأصول</td><td>${assets.toLocaleString()}</td></tr>
+            <tr><td>الالتزامات</td><td>${liabilities.toLocaleString()}</td></tr>
+            <tr><td>حقوق الملكية (متضمنة أرباح الفترة)</td><td>${totalEquity.toLocaleString()}</td></tr>
+            <tr class="total-row"><td>إجمالي الالتزامات وحقوق الملكية</td><td>${(liabilities + totalEquity).toLocaleString()}</td></tr>
+        `;
+
+        // 3. ملء قائمة التدفقات النقدية
+        document.querySelector('#cashTable tbody').innerHTML = `
+            <tr><td>صافي الدخل من قائمة الدخل</td><td>${netIncome.toLocaleString()}</td></tr>
+            <tr><td>التغير في الحسابات المدينة (العملاء)</td><td>(${receivables.toLocaleString()})</td></tr>
+            <tr><td>صافي التدفقات النقدية من الأنشطة التشغيلية</td><td>${(netIncome - receivables).toLocaleString()}</td></tr>
+            <tr class="total-row"><td>النقدية وما في حكمها في نهاية الفترة</td><td>${cash.toLocaleString()}</td></tr>
+        `;
+
+        // 4. توليد الإيضاحات والملاحظات
+        let notesHTML = `
+            <li><strong>السياسات المحاسبية:</strong> تم إعداد القوائم المالية وفقاً لمعايير التقارير المالية الدولية (IFRS) بناءً على ميزان المراجعة المقدم.</li>
+            <li><strong>إيضاح النقدية:</strong> يبلغ رصيد النقدية وما في حكمها ${cash.toLocaleString()}، وهو يمثل السيولة المتاحة في البنوك والصندوق.</li>
+            <li><strong>إيضاح الأداء المالي:</strong> حققت المنشأة صافي أرباح قدرها ${netIncome.toLocaleString()} خلال الفترة.</li>
+        `;
+
+        if (assets !== (liabilities + totalEquity)) {
+            notesHTML += `<li style="color: red;"><strong>ملاحظة هامة:</strong> يوجد عدم توازن بين إجمالي الأصول وإجمالي الالتزامات وحقوق الملكية بمقدار ${Math.abs(assets - (liabilities + totalEquity)).toLocaleString()}. يرجى مراجعة ميزان المراجعة لتسوية الفروقات.</li>`;
+        } else {
+            notesHTML += `<li style="color: green;"><strong>ملاحظة ميزان المراجعة:</strong> قائمة المركز المالي متوازنة تماماً.</li>`;
+        }
+
+        document.getElementById('notesContent').innerHTML = notesHTML;
+
+        // إظهار التبويبات والنتائج
+        document.getElementById('tabsHeader').style.display = 'flex';
+        switchTab('incomeTab');
+    }
+
+    // التنقل بين التبويبات
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+</script>
+
+</body>
+</html>
