@@ -7,7 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
     --ink:#16241C;
@@ -212,53 +213,42 @@
 
   footer{ text-align:center; padding:20px; color:var(--ink-soft); font-size:12.5px;}
 
-  /* PDF Print Styles */
-  @media print{
-    header.hero, .tb-tools, .gen-row, .tabs, .btn-excel, .btn-pdf, .developer-footer, .upload-zone{ display:none !important;}
-    .tab-panel{ display:block !important; page-break-inside:avoid;}
-    body{ background:#fff; margin:0; padding:0; }
-    .card{ box-shadow:none; border:1px solid #ddd; }
-    .stmt-table td{ border-bottom:1px solid #ddd; }
-    tr.subtotal td{ background:#f5f0e8; }
-    tr.grandtotal td{ background:#e4f1e9; }
+  /* Print styles for PDF */
+  @media print {
+    body * { visibility: hidden; }
+    .pdf-print-content, .pdf-print-content * { visibility: visible; }
+    .pdf-print-content { position: absolute; left: 0; top: 0; width: 100%; background: #fff; direction: rtl; font-family: 'Tajawal', sans-serif; }
+    .pdf-page { page-break-after: always; padding: 30px 25px; min-height: 100vh; }
+    .pdf-page:last-child { page-break-after: avoid; }
+    .pdf-page .page-header { text-align: center; border-bottom: 3px solid #A9782E; padding-bottom: 12px; margin-bottom: 20px; }
+    .pdf-page .page-header h2 { color: #16241C; font-size: 24px; margin: 0; font-family: 'Cairo', sans-serif; }
+    .pdf-page .page-footer { margin-top: 30px; text-align: center; font-size: 11px; color: #7A8F7A; border-top: 1px solid #ddd; padding-top: 10px; }
+    .pdf-page .page-number { font-size: 11px; color: #7A8F7A; text-align: center; margin-top: 15px; }
+    .pdf-page table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pdf-page table td { padding: 6px 4px; border-bottom: 1px solid #ddd; }
+    .pdf-page table th { padding: 6px 4px; border-bottom: 2px solid #A9782E; font-weight: bold; }
+    .pdf-page .stmt-section-title { font-weight: bold; font-size: 14px; color: #7E5A20; margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
+    .pdf-page .subtotal td { font-weight: bold; border-top: 1px solid #16241C; border-bottom: 2px double #16241C; background: #f5f0e8; }
+    .pdf-page .grandtotal td { font-weight: bold; font-size: 15px; color: #2F7A52; border-top: 2px solid #2F7A52; border-bottom: 3px double #2F7A52; background: #E4F1E9; }
+    .pdf-page .balance-check-pill { display: inline-block; padding: 6px 12px; border-radius: 20px; font-weight: bold; margin-bottom: 10px; }
+    .pdf-page .balance-check-pill.ok { background: #E4F1E9; color: #2F7A52; }
+    .pdf-page .balance-check-pill.bad { background: #F7E7E5; color: #B23A3A; }
+    .pdf-page .note-item { border-right: 4px solid #A9782E; background: #f5f0e8; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
+    .pdf-page .note-item h3 { font-size: 14px; margin: 0 0 4px; }
+    .pdf-page .note-item p { margin: 0; font-size: 13px; line-height: 1.8; }
+    .pdf-page .ratio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .pdf-page .ratio-card { background: #f5f0e8; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; }
+    .pdf-page .ratio-card .rname { font-weight: bold; font-size: 12px; color: #3B4A3F; }
+    .pdf-page .ratio-card .rvalue { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: bold; color: #2F7A52; direction: ltr; text-align: right; }
+    .pdf-page .ratio-card .rinterp { font-size: 11px; color: #3B4A3F; margin-top: 4px; }
+    .pdf-page .bullet-list { margin: 0; padding-right: 18px; line-height: 2; font-size: 13px; }
+    .pdf-page .bullet-list.flag li { color: #7A2A2A; }
+    .pdf-page .num { font-family: 'IBM Plex Mono', monospace; direction: ltr; }
+    .pdf-page .notes-list { display: flex; flex-direction: column; gap: 10px; }
   }
 
-  /* PDF page break for export */
-  .pdf-page {
-    page-break-after: always;
-    padding: 30px 25px;
-    background: #fff;
-    min-height: 100vh;
-  }
-  .pdf-page:last-child {
-    page-break-after: avoid;
-  }
-  .pdf-page .page-header {
-    text-align: center;
-    border-bottom: 3px solid #A9782E;
-    padding-bottom: 12px;
-    margin-bottom: 20px;
-  }
-  .pdf-page .page-header h2 {
-    color: #16241C;
-    font-size: 24px;
-    margin: 0;
-    font-family: 'Cairo', sans-serif;
-  }
-  .pdf-page .page-footer {
-    margin-top: 30px;
-    text-align: center;
-    font-size: 11px;
-    color: #7A8F7A;
-    border-top: 1px solid #ddd;
-    padding-top: 10px;
-  }
-  .pdf-page .page-number {
-    font-size: 11px;
-    color: #7A8F7A;
-    text-align: center;
-    margin-top: 15px;
-  }
+  /* Hide print content by default */
+  .pdf-print-content { display: none; }
 </style>
 </head>
 <body>
@@ -386,6 +376,9 @@
 
 <footer>مولد القوائم المالية — أداة مساعدة للتحليل الأولي، ولا تُغني عن مراجعة محاسب قانوني معتمد قبل الاعتماد النهائي.</footer>
 
+<!-- Hidden print content container -->
+<div class="pdf-print-content" id="pdfPrintContent"></div>
+
 <script>
 let rows = [];
 let rowIdCounter = 0;
@@ -394,27 +387,33 @@ let lastGeneratedData = null;
 const CATEGORY_GROUPS = [
   {label:'الأصول المتداولة', opts:[
     ['cash','نقدية وما يعادلها'],
-    ['ar','حسابات مدينة (عملاء)'],
-    ['prepaid_to_supplier','دفعات مقدمة للموردين'],
+    ['ar','مدينون تجاريون'],
+    ['other_ca','الحسابات المدينة الأخرى'],
     ['inventory','مخزون'],
+    ['prepaid_to_supplier','دفعات مقدمة'],
     ['prepaid','مصروفات مدفوعة مقدماً'],
-    ['other_ca','أصول متداولة أخرى'],
+    ['related_party','مستحق من اطراف ذات صلة'],
+    ['refundable_deposit','تأمينات مستردة'],
+    ['trading_investment','استثمارات تداول'],
   ]},
   {label:'الأصول غير المتداولة', opts:[
     ['ppe','أصول ثابتة (بالتكلفة)'],
-    ['accum_dep','مجمع إهلاك (مخصوم من الأصول الثابتة)'],
+    ['accum_dep','مجمع إهلاك (مخصوم)'],
     ['intangible','أصول غير ملموسة'],
+    ['accum_amort','مجمع إطفاءات (مخصوم)'],
     ['other_nca','أصول غير متداولة أخرى'],
   ]},
   {label:'الالتزامات المتداولة', opts:[
-    ['ap','حسابات دائنة (موردون)'],
+    ['ap','دائنون تجاريون'],
+    ['related_party_payable','مستحق الى اطراف ذات صلة'],
     ['accrued','مصروفات مستحقة'],
-    ['st_loan','قروض قصيرة الأجل'],
-    ['other_cl','التزامات متداولة أخرى'],
+    ['leave_provision','مخصص بدل إجازة'],
+    ['other_cl','حسابات دائنة أخرى'],
   ]},
   {label:'الالتزامات غير المتداولة', opts:[
     ['lt_loan','قروض طويلة الأجل'],
-    ['eosb','مكافأة نهاية الخدمة'],
+    ['deferred_finance','تكلفة تمويلية مؤجلة (مخصوم)'],
+    ['eosb','مخصص مكافأة نهاية الخدمة'],
     ['other_ncl','التزامات غير متداولة أخرى'],
   ]},
   {label:'حقوق الملكية', opts:[
@@ -422,7 +421,7 @@ const CATEGORY_GROUPS = [
     ['partner_current','حساب الشريك الجاري'],
     ['reserves','احتياطيات'],
     ['retained','أرباح مبقاة (رصيد أول المدة)'],
-    ['dividends','توزيعات أرباح (مخصومة من حقوق الملكية)'],
+    ['dividends','توزيعات أرباح (مخصومة)'],
   ]},
   {label:'الإيرادات', opts:[
     ['revenue','إيرادات / مبيعات'],
@@ -440,8 +439,10 @@ const CATEGORY_GROUPS = [
 
 const DEBIT_NATURE = new Set([
   'cash','ar','prepaid_to_supplier','inventory','prepaid','other_ca',
-  'ppe','intangible','other_nca',
-  'cogs','sga','depreciation','finance_cost','tax','other_expense','dividends'
+  'ppe','intangible','other_nca','accum_dep','accum_amort',
+  'cogs','sga','depreciation','finance_cost','tax','other_expense',
+  'dividends','related_party','refundable_deposit','trading_investment',
+  'related_party_payable','leave_provision','deferred_finance'
 ]);
 
 // ====== نظام تصنيف متطور ======
@@ -467,8 +468,10 @@ const CLASSIFY_RULES = [
   { regex: /^11510[0-9]/, category: 'inventory', priority: 85 },
   
   // الأصول المتداولة الأخرى
-  { regex: /\b(?:Refundable Deposits|تأمينات مستردة|investment|استثمارات|Due from|مستحق\s*من)\b/i, category: 'other_ca', priority: 80 },
-  { regex: /^112001|^115103|^115113/, category: 'other_ca', priority: 85 },
+  { regex: /\b(?:Refundable Deposits|تأمينات مستردة|refundable deposit)\b/i, category: 'refundable_deposit', priority: 85 },
+  { regex: /\b(?:investment.*trading|استثمارات تداول|trading investment)\b/i, category: 'trading_investment', priority: 85 },
+  { regex: /\b(?:Due from|مستحق من|related parties|اطراف ذات صلة)\b(?!.*(?:payable|الى|to))/i, category: 'related_party', priority: 85 },
+  { regex: /^112001|^115103|^115113/, category: 'other_ca', priority: 80 },
   
   // الأصول الثابتة
   { regex: /\bFA\s*[-–—]\s*Historical Cost|^12110[0-9]/, category: 'ppe', priority: 95 },
@@ -476,14 +479,23 @@ const CLASSIFY_RULES = [
   
   // مجمع الإهلاك
   { regex: /\bFA\s*[-–—]\s*Accumulated Depreciation|^12130[0-9]/, category: 'accum_dep', priority: 95 },
-  { regex: /\b(?:Accumulated Depreciation|Accumulated Amortization|مجمع\s*الاستهلاك|مجمع\s*الاطفاءات)\b/i, category: 'accum_dep', priority: 90 },
+  { regex: /\b(?:Accumulated Depreciation|مجمع\s*الاستهلاك)\b(?!.*(?:Amortization|اطفاءات))/i, category: 'accum_dep', priority: 90 },
   
   // الأصول غير الملموسة
-  { regex: /\b(?:Trade Mark|Website|online|براءة|شهرة|علامة تجارية|intangible)\b/i, category: 'intangible', priority: 80 },
+  { regex: /\b(?:Trade Mark|Website|online|براءة|شهرة|علامة تجارية|intangible|غير ملموسة)\b/i, category: 'intangible', priority: 80 },
+  
+  // مجمع الإطفاءات
+  { regex: /\b(?:Accumulated Amortization|مجمع الاطفاءات|amortization accumulated)\b/i, category: 'accum_amort', priority: 85 },
   
   // المصروفات المستحقة
   { regex: /\bAccrued Expenses|^21120[0-9]/, category: 'accrued', priority: 95 },
   { regex: /\b(?:Salaries|internet|Electricity|مستحقات|رواتب مستحقة|مصروفات مستحقة)\b/i, category: 'accrued', priority: 85 },
+  
+  // مخصص بدل إجازة
+  { regex: /\b(?:Leave provision|مخصص بدل إجازة|leave provision)\b/i, category: 'leave_provision', priority: 85 },
+  
+  // مستحق الى اطراف ذات صلة
+  { regex: /\b(?:Due to|مستحق الى|payable to related|الى اطراف ذات صلة)\b/i, category: 'related_party_payable', priority: 85 },
   
   // رأس المال
   { regex: /\bCapital\s*[-–—]\s*|^31110[0-9]/, category: 'capital', priority: 95 },
@@ -496,6 +508,9 @@ const CLASSIFY_RULES = [
   // الأرباح المبقاة
   { regex: /\bRetained Earnings|^319101/, category: 'retained', priority: 95 },
   { regex: /\b(?:Retained Earnings|ارباح محتفظ بها|أرباح مبقاة)\b/i, category: 'retained', priority: 90 },
+  
+  // تكلفة تمويلية مؤجلة
+  { regex: /\b(?:Deferred finance cost|تكلفة تمويلية مؤجلة|deferred finance)\b/i, category: 'deferred_finance', priority: 85 },
   
   // الإيرادات
   { regex: /\b(?:training courses Revenue|Trading commission Revnue|Sales Refund|Revenue|مبيعات|إيرادات|ايرادات)\b(?!.*(?:cost|تكلفة|expense|مصروف))/i, category: 'revenue', priority: 85 },
@@ -557,9 +572,10 @@ function classifyAccount(name, debit = 0, credit = 0) {
       if (/Retained|ارباح|مبقاة/i.test(trimmedName)) return 'retained';
       return 'reserves';
     }
-    if (/TP|Accrued|Salaries|internet|Electricity|مورد|مستحق/i.test(trimmedName)) {
+    if (/TP|Accrued|Salaries|internet|Electricity|مورد|مستحق|payable|due to/i.test(trimmedName)) {
       if (/TP|مورد|payable|supplier/i.test(trimmedName)) return 'ap';
-      if (/Accrued|مستحق|Salaries/i.test(trimmedName)) return 'accrued';
+      if (/Accrued|مستحق|Salaries|leave|بدل إجازة/i.test(trimmedName)) return 'accrued';
+      if (/due to|مستحق الى|related parties/i.test(trimmedName)) return 'related_party_payable';
     }
     if (/Revenue|training|Trading|commission|ايرادات|مبيعات/i.test(trimmedName)) {
       return 'revenue';
@@ -569,7 +585,7 @@ function classifyAccount(name, debit = 0, credit = 0) {
   
   if (debit > 0 && credit === 0) {
     if (/TR|Receivable|مدين|عملاء|Staff|Due|Prepaid|Inventory|FA|Historical|Furniture|Computer|Decoration|Trade Mark|Website|Depreciation|Amortization|OE|Cost|G&A|Staff|Professional|Marketing|Rent|Electricity|Cleaning|Hospitality|Stationery|License|Maintenance|Printings|Bank|Travelling|Telephone|Internet|zakat|Expense|مصاريف|مصروفات|أصول|ثابتة|مخزون|نقد/i.test(trimmedName)) {
-      if (/TR|Receivable|مدين|عملاء|Due|Staff/i.test(trimmedName)) return 'ar';
+      if (/TR|Receivable|مدين|عملاء|Due from|اطراف ذات صلة/i.test(trimmedName)) return 'ar';
       if (/Prepaid|مقدم/i.test(trimmedName)) return 'prepaid';
       if (/Inventory|مخزون|raw/i.test(trimmedName)) return 'inventory';
       if (/FA|Historical|Furniture|Computer|Decoration|Trade Mark|Website|أصول ثابتة/i.test(trimmedName)) return 'ppe';
@@ -577,6 +593,8 @@ function classifyAccount(name, debit = 0, credit = 0) {
       if (/OE|Cost of Sales|تكلفة/i.test(trimmedName)) return 'cogs';
       if (/G&A|Staff|Professional|Marketing|Rent|Electricity|Cleaning|Hospitality|Stationery|License|Maintenance|Printings|Bank|Travelling|Telephone|Internet|zakat/i.test(trimmedName)) return 'sga';
       if (/zakat|ضريبة/i.test(trimmedName)) return 'tax';
+      if (/Refundable|تأمينات مستردة/i.test(trimmedName)) return 'refundable_deposit';
+      if (/investment.*trading|استثمارات تداول/i.test(trimmedName)) return 'trading_investment';
       return 'other_expense';
     }
     return 'other_expense';
@@ -912,39 +930,227 @@ function renderIncomeStatement(d){
   return html;
 }
 
-function renderBalanceSheetGroup(title, group){
-  if(!group) return '';
-  let html = sectionTitle(title);
-  html += '<table class="stmt-table"><tbody>';
-  html += linesRows(group.current, true);
-  if(group.current_total !== undefined) html += subtotalRow('إجمالي المتداول', group.current_total);
-  html += linesRows(group.non_current, true);
-  if(group.non_current_total !== undefined) html += subtotalRow('إجمالي غير المتداول', group.non_current_total);
-  html += '</tbody></table>';
-  return html;
-}
-
-function renderBalanceSheet(d){
-  if(!d) return '<p>لا توجد بيانات.</p>';
+// ====== دالة عرض المركز المالي بالترتيب المطلوب ======
+function renderBalanceSheet(d) {
+  if (!d) return '<p>لا توجد بيانات.</p>';
+  
   const balanced = d.is_balanced !== false;
-  let html = '<span class="balance-check-pill ' + (balanced?'ok':'bad') + '">' + (balanced ? 'الأصول = الالتزامات + حقوق الملكية ✓' : 'عدم توازن — الفرق ' + fmt(Math.abs(d.difference||0))) + '</span>';
+  let html = '<span class="balance-check-pill ' + (balanced ? 'ok' : 'bad') + '">' + (balanced ? '✅ الأصول = الالتزامات + حقوق الملكية ✓' : '⚠️ عدم توازن — الفرق ' + fmt(Math.abs(d.difference || 0))) + '</span>';
 
-  html += renderBalanceSheetGroup('الأصول', d.assets);
-  if(d.assets && d.assets.total_assets !== undefined){
-    html += '<table class="stmt-table"><tbody>' + subtotalRow('إجمالي الأصول', d.assets.total_assets, true) + '</tbody></table>';
+  const allAccounts = d._allAccounts || [];
+  
+  // تجميع الحسابات حسب التصنيف
+  const catMap = {};
+  allAccounts.forEach(a => {
+    if (!catMap[a.cat]) catMap[a.cat] = [];
+    catMap[a.cat].push(a);
+  });
+  
+  // دالة لحساب مجموع تصنيف معين
+  function sumCat(cat) {
+    return (catMap[cat] || []).reduce((s, a) => s + netAmount(a), 0);
   }
-
-  html += renderBalanceSheetGroup('الالتزامات', d.liabilities);
-  if(d.liabilities && d.liabilities.total_liabilities !== undefined){
-    html += '<table class="stmt-table"><tbody>' + subtotalRow('إجمالي الالتزامات', d.liabilities.total_liabilities) + '</tbody></table>';
-  }
-
+  
+  // ====== الأصول ======
+  html += sectionTitle('الأصول');
+  
+  // ---- الأصول المتداولة ----
+  html += sectionTitle('الأصول المتداولة');
+  html += '<table class="stmt-table"><tbody>';
+  
+  // ترتيب الأصول المتداولة حسب المطلوب
+  const currentOrder = [
+    { cat: 'cash', label: 'النقد والنقد المعادل' },
+    { cat: 'ar', label: 'مدينون تجاريون' },
+    { cat: 'other_ca', label: 'الحسابات المدينة الأخرى' },
+    { cat: 'inventory', label: 'المخزون' },
+    { cat: 'prepaid_to_supplier', label: 'دفعات مقدمة' },
+    { cat: 'prepaid', label: 'مصروفات مدفوعة مقدما' },
+    { cat: 'related_party', label: 'مستحق من اطراف ذات صلة' },
+    { cat: 'refundable_deposit', label: 'تأمينات مستردة' },
+    { cat: 'trading_investment', label: 'استثمارات تداول' }
+  ];
+  
+  let currentTotal = 0;
+  currentOrder.forEach(item => {
+    const items = catMap[item.cat] || [];
+    let total = 0;
+    items.forEach(a => {
+      const amount = netAmount(a);
+      total += amount;
+      html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(amount) + '</td></tr>';
+    });
+    if (items.length > 0) {
+      currentTotal += total;
+    }
+  });
+  
+  html += subtotalRow('إجمالي الأصول المتداولة', currentTotal);
+  html += '</tbody></table>';
+  
+  // ---- الأصول غير المتداولة ----
+  html += sectionTitle('الأصول غير المتداولة');
+  html += '<table class="stmt-table"><tbody>';
+  
+  // صافي الممتلكات والمعدات الثابتة
+  const ppeTotal = sumCat('ppe');
+  const accumDepTotal = sumCat('accum_dep');
+  const netPPE = ppeTotal - accumDepTotal;
+  
+  // عرض الممتلكات والمعدات الثابتة بالتكلفة التاريخية
+  const ppeItems = catMap['ppe'] || [];
+  ppeItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // مجمع الاستهلاك
+  const accumItems = catMap['accum_dep'] || [];
+  accumItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // صافي الأصول الثابتة غير الملموسة
+  const intangibleTotal = sumCat('intangible');
+  const accumAmortTotal = sumCat('accum_amort');
+  const netIntangible = intangibleTotal - accumAmortTotal;
+  
+  // الأصول الثابتة غير الملموسة بالتكلفة التاريخية
+  const intangibleItems = catMap['intangible'] || [];
+  intangibleItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // مجمع الإطفاءات
+  const amortItems = catMap['accum_amort'] || [];
+  amortItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // ودائع ثابتة (اكثر من سنة)
+  const otherNcaItems = catMap['other_nca'] || [];
+  otherNcaItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  const nonCurrentTotal = netPPE + netIntangible + sumCat('other_nca');
+  html += subtotalRow('إجمالي الأصول غير المتداولة', nonCurrentTotal);
+  html += '</tbody></table>';
+  
+  // إجمالي الأصول
+  const totalAssets = currentTotal + nonCurrentTotal;
+  html += '<table class="stmt-table"><tbody>' + subtotalRow('إجمالي الأصول', totalAssets, true) + '</tbody></table>';
+  
+  // ====== الالتزامات ======
+  html += sectionTitle('الالتزامات');
+  
+  // ---- الالتزامات المتداولة ----
+  html += sectionTitle('الالتزامات المتداولة');
+  html += '<table class="stmt-table"><tbody>';
+  
+  const clOrder = [
+    { cat: 'ap', label: 'دائنون تجاريون' },
+    { cat: 'related_party_payable', label: 'مستحق الى اطراف ذات صلة' },
+    { cat: 'accrued', label: 'مصروفات مستحقة' },
+    { cat: 'leave_provision', label: 'مخصص بدل إجازة' },
+    { cat: 'other_cl', label: 'حسابات دائنة أخرى' }
+  ];
+  
+  let clTotal = 0;
+  clOrder.forEach(item => {
+    const items = catMap[item.cat] || [];
+    let total = 0;
+    items.forEach(a => {
+      const amount = netAmount(a);
+      total += amount;
+      html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(amount) + '</td></tr>';
+    });
+    if (items.length > 0) {
+      clTotal += total;
+    }
+  });
+  
+  html += subtotalRow('إجمالي الالتزامات المتداولة', clTotal);
+  html += '</tbody></table>';
+  
+  // ---- الالتزامات غير المتداولة ----
+  html += sectionTitle('الالتزامات غير المتداولة');
+  html += '<table class="stmt-table"><tbody>';
+  
+  // صافي القروض طويلة الأجل
+  const ltLoanTotal = sumCat('lt_loan');
+  const deferredFinanceTotal = sumCat('deferred_finance');
+  const netLoans = ltLoanTotal - deferredFinanceTotal;
+  
+  // قروض طويلة الأجل
+  const ltLoanItems = catMap['lt_loan'] || [];
+  ltLoanItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // تكلفة تمويلية مؤجلة
+  const deferredItems = catMap['deferred_finance'] || [];
+  deferredItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // مخصص مكافأة نهاية الخدمة
+  const eosbItems = catMap['eosb'] || [];
+  eosbItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // التزامات غير متداولة أخرى
+  const otherNclItems = catMap['other_ncl'] || [];
+  otherNclItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  const nclTotal = netLoans + sumCat('eosb') + sumCat('other_ncl');
+  html += subtotalRow('إجمالي الالتزامات غير المتداولة', nclTotal);
+  html += '</tbody></table>';
+  
+  // ====== حقوق الملكية ======
   html += sectionTitle('حقوق الملكية');
   html += '<table class="stmt-table"><tbody>';
-  html += linesRows(d.equity && d.equity.items);
-  if(d.equity && d.equity.total_equity !== undefined) html += subtotalRow('إجمالي حقوق الملكية', d.equity.total_equity);
-  if(d.total_liabilities_and_equity !== undefined) html += subtotalRow('إجمالي الالتزامات وحقوق الملكية', d.total_liabilities_and_equity, true);
+  
+  // رأس المال
+  const capitalItems = catMap['capital'] || [];
+  capitalItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // جاري الشركاء
+  const partnerItems = catMap['partner_current'] || [];
+  partnerItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // أرباح محتفظ بها / (خسائر) متراكمة
+  const retainedItems = catMap['retained'] || [];
+  retainedItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // احتياطيات
+  const reservesItems = catMap['reserves'] || [];
+  reservesItems.forEach(a => {
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  
+  // الربح / (الخسارة) خلال الفترة
+  const netIncome = d.net_income || 0;
+  if (netIncome !== 0) {
+    html += '<tr><td>الربح / (الخسارة) خلال الفترة</td><td class="num">' + fmt(netIncome) + '</td></tr>';
+  }
+  
+  const totalEquity = sumCat('capital') + sumCat('partner_current') + sumCat('reserves') + sumCat('retained') + netIncome;
+  html += subtotalRow('إجمالي حقوق الملكية', totalEquity);
   html += '</tbody></table>';
+  
+  // إجمالي الالتزامات وحقوق الملكية
+  const totalLiabEquity = clTotal + nclTotal + totalEquity;
+  html += '<table class="stmt-table"><tbody>' + subtotalRow('إجمالي الالتزامات وحقوق الملكية', totalLiabEquity, true) + '</tbody></table>';
+  
   return html;
 }
 
@@ -1078,33 +1284,32 @@ function computeStatements(accounts, tbTotals){
   const inventoryTotal = sumCat(accounts, 'inventory');
   const prepaidTotal = sumCat(accounts, 'prepaid');
   const otherCaTotal = sumCat(accounts, 'other_ca');
+  const relatedPartyTotal = sumCat(accounts, 'related_party');
+  const refundableDepositTotal = sumCat(accounts, 'refundable_deposit');
+  const tradingInvestmentTotal = sumCat(accounts, 'trading_investment');
   
-  const currentAssetsLines = ['cash','ar','prepaid_to_supplier','inventory','prepaid','other_ca'].flatMap(c => linesForCat(accounts, c));
-  const currentAssetsTotal = cashTotal + arTotal + prepaidToSupplierTotal + inventoryTotal + prepaidTotal + otherCaTotal;
+  const currentAssetsTotal = cashTotal + arTotal + prepaidToSupplierTotal + inventoryTotal + prepaidTotal + otherCaTotal + relatedPartyTotal + refundableDepositTotal + tradingInvestmentTotal;
 
   const ppeTotal = sumCat(accounts, 'ppe');
   const accumDepTotal = sumCat(accounts, 'accum_dep');
   const intangibleTotal = sumCat(accounts, 'intangible');
+  const accumAmortTotal = sumCat(accounts, 'accum_amort');
   const otherNcaTotal = sumCat(accounts, 'other_nca');
-  const nonCurrentAssetsLines = linesForCat(accounts, 'ppe')
-    .concat(linesForCat(accounts, 'accum_dep', true))
-    .concat(linesForCat(accounts, 'intangible'))
-    .concat(linesForCat(accounts, 'other_nca'));
-  const nonCurrentAssetsTotal = ppeTotal - accumDepTotal + intangibleTotal + otherNcaTotal;
+  const nonCurrentAssetsTotal = (ppeTotal - accumDepTotal) + (intangibleTotal - accumAmortTotal) + otherNcaTotal;
   const totalAssets = currentAssetsTotal + nonCurrentAssetsTotal;
 
   const apTotal = sumCat(accounts, 'ap');
+  const relatedPartyPayableTotal = sumCat(accounts, 'related_party_payable');
   const accruedTotal = sumCat(accounts, 'accrued');
-  const stLoanTotal = sumCat(accounts, 'st_loan');
+  const leaveProvisionTotal = sumCat(accounts, 'leave_provision');
   const otherClTotal = sumCat(accounts, 'other_cl');
-  const currentLiabLines = ['ap','accrued','st_loan','other_cl'].flatMap(c => linesForCat(accounts, c));
-  const currentLiabTotal = apTotal + accruedTotal + stLoanTotal + otherClTotal;
+  const currentLiabTotal = apTotal + relatedPartyPayableTotal + accruedTotal + leaveProvisionTotal + otherClTotal;
 
   const ltLoanTotal = sumCat(accounts, 'lt_loan');
+  const deferredFinanceTotal = sumCat(accounts, 'deferred_finance');
   const eosbTotal = sumCat(accounts, 'eosb');
   const otherNclTotal = sumCat(accounts, 'other_ncl');
-  const nonCurrentLiabLines = ['lt_loan','eosb','other_ncl'].flatMap(c => linesForCat(accounts, c));
-  const nonCurrentLiabTotal = ltLoanTotal + eosbTotal + otherNclTotal;
+  const nonCurrentLiabTotal = (ltLoanTotal - deferredFinanceTotal) + eosbTotal + otherNclTotal;
   const totalLiabilities = currentLiabTotal + nonCurrentLiabTotal;
 
   const capitalTotal = sumCat(accounts, 'capital');
@@ -1113,22 +1318,28 @@ function computeStatements(accounts, tbTotals){
   const retainedTotal = sumCat(accounts, 'retained');
   const dividendsTotal = sumCat(accounts, 'dividends');
   
-  const equityItems = linesForCat(accounts, 'capital')
-    .concat(linesForCat(accounts, 'partner_current'))
-    .concat(linesForCat(accounts, 'reserves'))
-    .concat(linesForCat(accounts, 'retained'))
-    .concat([{label:'صافي ربح الفترة الحالية', amount: netIncome}]);
-  if(dividendsTotal !== 0) equityItems.push({label:'توزيعات أرباح (مخصومة)', amount: -dividendsTotal});
   const totalEquity = capitalTotal + partnerCurrentTotal + reservesTotal + retainedTotal + netIncome - dividendsTotal;
   const totalLiabEquity = totalLiabilities + totalEquity;
 
   const balance_sheet = {
-    assets: {current: currentAssetsLines, current_total: currentAssetsTotal, non_current: nonCurrentAssetsLines, non_current_total: nonCurrentAssetsTotal, total_assets: totalAssets},
-    liabilities: {current: currentLiabLines, current_total: currentLiabTotal, non_current: nonCurrentLiabLines, non_current_total: nonCurrentLiabTotal, total_liabilities: totalLiabilities},
-    equity: {items: equityItems, total_equity: totalEquity},
+    _allAccounts: accounts,
+    assets: {
+      current_total: currentAssetsTotal,
+      non_current_total: nonCurrentAssetsTotal,
+      total_assets: totalAssets
+    },
+    liabilities: {
+      current_total: currentLiabTotal,
+      non_current_total: nonCurrentLiabTotal,
+      total_liabilities: totalLiabilities
+    },
+    equity: {
+      total_equity: totalEquity
+    },
     total_liabilities_and_equity: totalLiabEquity,
     is_balanced: Math.abs(totalAssets - totalLiabEquity) < 1,
-    difference: totalAssets - totalLiabEquity
+    difference: totalAssets - totalLiabEquity,
+    net_income: netIncome
   };
 
   // ---- Cash Flow ----
@@ -1162,8 +1373,8 @@ function computeStatements(accounts, tbTotals){
   if(prepaidToSupplierTotal){
     notes.push({title:'دفعات مقدمة للموردين', content: 'تم تصنيف أرصدة الموردين المدينة (دفعات مقدمة) بمبلغ ' + fmt(prepaidToSupplierTotal) + ' كأصل متداول.'});
   }
-  if(stLoanTotal || ltLoanTotal){
-    notes.push({title:'القروض', content: 'قروض قصيرة الأجل ' + fmt(stLoanTotal) + ' وقروض طويلة الأجل ' + fmt(ltLoanTotal) + '، بإجمالي تمويل خارجي قدره ' + fmt(stLoanTotal+ltLoanTotal) + '.'});
+  if(ltLoanTotal || stLoanTotal){
+    notes.push({title:'القروض', content: 'قروض قصيرة الأجل ' + fmt(stLoanTotal || 0) + ' وقروض طويلة الأجل ' + fmt(ltLoanTotal) + '، بإجمالي تمويل خارجي قدره ' + fmt((stLoanTotal||0)+ltLoanTotal) + '.'});
   }
   if(arTotal || apTotal){
     notes.push({title:'أرصدة العملاء والموردين', content: 'حسابات مدينة (عملاء) ' + fmt(arTotal) + '، وحسابات دائنة (موردون) ' + fmt(apTotal) + '.'});
@@ -1267,6 +1478,7 @@ function showError(msg){
   errorBox.classList.add('show');
 }
 
+// ====== EXPORT EXCEL ======
 function exportToExcel() {
   if (!lastGeneratedData) {
     alert('الرجاء توليد القوائم المالية أولاً.');
@@ -1316,62 +1528,93 @@ function exportToExcel() {
   balanceData.push([]);
   
   const bs = data.balance_sheet;
+  const allAccounts = bs._allAccounts || [];
+  const catMap = {};
+  allAccounts.forEach(a => {
+    if (!catMap[a.cat]) catMap[a.cat] = [];
+    catMap[a.cat].push(a);
+  });
   
+  function sumCatExcel(cat) {
+    return (catMap[cat] || []).reduce((s, a) => s + netAmount(a), 0);
+  }
+  
+  // الأصول المتداولة
+  balanceData.push(['الأصول']);
   balanceData.push(['الأصول المتداولة']);
-  if (bs.assets && bs.assets.current) {
-    bs.assets.current.forEach(line => {
-      balanceData.push([line.label, line.amount]);
-    });
-    balanceData.push(['إجمالي الأصول المتداولة', bs.assets.current_total]);
-  }
+  balanceData.push(['النقد والنقد المعادل', sumCatExcel('cash')]);
+  balanceData.push(['مدينون تجاريون', sumCatExcel('ar')]);
+  balanceData.push(['الحسابات المدينة الأخرى', sumCatExcel('other_ca')]);
+  balanceData.push(['المخزون', sumCatExcel('inventory')]);
+  balanceData.push(['دفعات مقدمة', sumCatExcel('prepaid_to_supplier')]);
+  balanceData.push(['مصروفات مدفوعة مقدما', sumCatExcel('prepaid')]);
+  balanceData.push(['مستحق من اطراف ذات صلة', sumCatExcel('related_party')]);
+  balanceData.push(['تأمينات مستردة', sumCatExcel('refundable_deposit')]);
+  balanceData.push(['استثمارات تداول', sumCatExcel('trading_investment')]);
+  const currentTotal = sumCatExcel('cash') + sumCatExcel('ar') + sumCatExcel('other_ca') + sumCatExcel('inventory') + sumCatExcel('prepaid_to_supplier') + sumCatExcel('prepaid') + sumCatExcel('related_party') + sumCatExcel('refundable_deposit') + sumCatExcel('trading_investment');
+  balanceData.push(['إجمالي الأصول المتداولة', currentTotal]);
   balanceData.push([]);
   
+  // الأصول غير المتداولة
   balanceData.push(['الأصول غير المتداولة']);
-  if (bs.assets && bs.assets.non_current) {
-    bs.assets.non_current.forEach(line => {
-      balanceData.push([line.label, line.amount]);
-    });
-    balanceData.push(['إجمالي الأصول غير المتداولة', bs.assets.non_current_total]);
-  }
+  const ppeTotal = sumCatExcel('ppe');
+  const accumDepTotal = sumCatExcel('accum_dep');
+  balanceData.push(['صافي الممتلكات والمعدات الثابتة', ppeTotal - accumDepTotal]);
+  balanceData.push(['الممتلكات والمعدات الثابتة بالتكلفة التاريخية', ppeTotal]);
+  balanceData.push(['مجمع الاستهلاك', -accumDepTotal]);
+  const intangibleTotal = sumCatExcel('intangible');
+  const accumAmortTotal = sumCatExcel('accum_amort');
+  balanceData.push(['صافي الأصول الثابتة غير الملموسة', intangibleTotal - accumAmortTotal]);
+  balanceData.push(['الأصول الثابتة غير الملموسة بالتكلفة التاريخية', intangibleTotal]);
+  balanceData.push(['مجمع الإطفاءات', -accumAmortTotal]);
+  balanceData.push(['ودائع ثابتة (اكثر من سنة)', sumCatExcel('other_nca')]);
+  const nonCurrentTotal = (ppeTotal - accumDepTotal) + (intangibleTotal - accumAmortTotal) + sumCatExcel('other_nca');
+  balanceData.push(['إجمالي الأصول غير المتداولة', nonCurrentTotal]);
   balanceData.push([]);
-  balanceData.push(['إجمالي الأصول', bs.assets.total_assets]);
+  balanceData.push(['إجمالي الأصول', currentTotal + nonCurrentTotal]);
   balanceData.push([]);
   
+  // الالتزامات
+  balanceData.push(['الالتزامات']);
   balanceData.push(['الالتزامات المتداولة']);
-  if (bs.liabilities && bs.liabilities.current) {
-    bs.liabilities.current.forEach(line => {
-      balanceData.push([line.label, line.amount]);
-    });
-    balanceData.push(['إجمالي الالتزامات المتداولة', bs.liabilities.current_total]);
-  }
+  balanceData.push(['دائنون تجاريون', sumCatExcel('ap')]);
+  balanceData.push(['مستحق الى اطراف ذات صلة', sumCatExcel('related_party_payable')]);
+  balanceData.push(['مصروفات مستحقة', sumCatExcel('accrued')]);
+  balanceData.push(['مخصص بدل إجازة', sumCatExcel('leave_provision')]);
+  balanceData.push(['حسابات دائنة أخرى', sumCatExcel('other_cl')]);
+  const clTotal = sumCatExcel('ap') + sumCatExcel('related_party_payable') + sumCatExcel('accrued') + sumCatExcel('leave_provision') + sumCatExcel('other_cl');
+  balanceData.push(['إجمالي الالتزامات المتداولة', clTotal]);
   balanceData.push([]);
   
   balanceData.push(['الالتزامات غير المتداولة']);
-  if (bs.liabilities && bs.liabilities.non_current) {
-    bs.liabilities.non_current.forEach(line => {
-      balanceData.push([line.label, line.amount]);
-    });
-    balanceData.push(['إجمالي الالتزامات غير المتداولة', bs.liabilities.non_current_total]);
-  }
+  const ltLoanTotal = sumCatExcel('lt_loan');
+  const deferredFinanceTotal = sumCatExcel('deferred_finance');
+  balanceData.push(['صافي القروض طويلة الأجل', ltLoanTotal - deferredFinanceTotal]);
+  balanceData.push(['قروض طويلة الأجل', ltLoanTotal]);
+  balanceData.push(['تكلفة تمويلية مؤجلة', -deferredFinanceTotal]);
+  balanceData.push(['مخصص مكافأة نهاية الخدمة', sumCatExcel('eosb')]);
+  const nclTotal = (ltLoanTotal - deferredFinanceTotal) + sumCatExcel('eosb') + sumCatExcel('other_ncl');
+  balanceData.push(['إجمالي الالتزامات غير المتداولة', nclTotal]);
   balanceData.push([]);
-  balanceData.push(['إجمالي الالتزامات', bs.liabilities.total_liabilities]);
+  balanceData.push(['إجمالي الالتزامات', clTotal + nclTotal]);
   balanceData.push([]);
   
+  // حقوق الملكية
   balanceData.push(['حقوق الملكية']);
-  if (bs.equity && bs.equity.items) {
-    bs.equity.items.forEach(line => {
-      balanceData.push([line.label, line.amount]);
-    });
-    balanceData.push(['إجمالي حقوق الملكية', bs.equity.total_equity]);
-  }
+  balanceData.push(['رأس المال', sumCatExcel('capital')]);
+  balanceData.push(['جاري الشركاء', sumCatExcel('partner_current')]);
+  balanceData.push(['ارباح محتفظ بها / (خسائر) متراكمة', sumCatExcel('retained')]);
+  const netIncome = data.income_statement.net_income || 0;
+  balanceData.push(['الربح / (الخسارة) خلال الفترة', netIncome]);
+  const totalEquity = sumCatExcel('capital') + sumCatExcel('partner_current') + sumCatExcel('reserves') + sumCatExcel('retained') + netIncome;
+  balanceData.push(['إجمالي حقوق الملكية', totalEquity]);
   balanceData.push([]);
-  balanceData.push(['إجمالي الالتزامات وحقوق الملكية', bs.total_liabilities_and_equity]);
+  balanceData.push(['إجمالي الالتزامات وحقوق الملكية', (clTotal + nclTotal + totalEquity)]);
   balanceData.push([]);
-  
   balanceData.push(['حالة التوازن', bs.is_balanced ? 'متوازن ✓' : 'غير متوازن - الفرق: ' + Math.abs(bs.difference || 0)]);
   
   const wsBalance = XLSX.utils.aoa_to_sheet(balanceData);
-  wsBalance['!cols'] = [{wch:50}, {wch:20}];
+  wsBalance['!cols'] = [{wch:45}, {wch:20}];
   XLSX.utils.book_append_sheet(wb, wsBalance, 'المركز المالي');
   
   // ====== 3. Cash Flow ======
@@ -1540,7 +1783,7 @@ function exportToExcel() {
   XLSX.writeFile(wb, 'القوائم_المالية_الكاملة.xlsx');
 }
 
-// ====== EXPORT PDF - كل قائمة في صفحة منفصلة ======
+// ====== EXPORT PDF ======
 function exportToPDF() {
   if (!lastGeneratedData) {
     alert('الرجاء توليد القوائم المالية أولاً.');
@@ -1548,26 +1791,24 @@ function exportToPDF() {
   }
   
   const data = lastGeneratedData;
-  
-  // إنشاء عنصر لعرض المحتوى
-  const printContainer = document.createElement('div');
-  printContainer.style.cssText = 'padding:0; font-family:Tajawal,sans-serif; direction:rtl; background:#fff;';
-  printContainer.id = 'pdf-export-container';
+  const printContainer = document.getElementById('pdfPrintContent');
+  printContainer.innerHTML = '';
+  printContainer.style.display = 'block';
+  printContainer.className = 'pdf-print-content';
   
   // وظيفة مساعدة لإنشاء صفحة PDF
-  function createPDFPage(title, contentHtml, pageNum, totalPages) {
+  function createPage(title, contentHtml, pageNum, totalPages) {
     return `
-      <div class="pdf-page" style="page-break-after:${pageNum < totalPages ? 'always' : 'avoid'}; padding:30px 25px; background:#fff; min-height:100vh;">
-        <div class="page-header" style="text-align:center; border-bottom:3px solid #A9782E; padding-bottom:12px; margin-bottom:20px;">
-          <h2 style="color:#16241C; font-size:24px; margin:0; font-family:'Cairo',sans-serif;">${title}</h2>
+      <div class="pdf-page">
+        <div class="page-header">
+          <h2>${title}</h2>
         </div>
-        <div style="padding:0 10px;">
+        <div>
           ${contentHtml}
         </div>
-        <div class="page-footer" style="margin-top:30px; text-align:center; font-size:11px; color:#7A8F7A; border-top:1px solid #ddd; padding-top:10px;">
+        <div class="page-footer">
           ${title} — صفحة ${pageNum} من ${totalPages}
-        </div>
-        <div style="text-align:center; font-size:10px; color:#7A8F7A; margin-top:5px;">
+          <br>
           تم التوليد بواسطة مولد القوائم المالية | أ. أحمد عبدالكريم
         </div>
       </div>
@@ -1576,13 +1817,11 @@ function exportToPDF() {
   
   // ====== صفحة 1: الفهرس ======
   const indexHtml = `
-    <div class="pdf-page" style="page-break-after:always; padding:50px 30px; background:#fff; min-height:100vh; display:flex; flex-direction:column; justify-content:center;">
-      <div style="text-align:center; margin-bottom:40px;">
-        <h1 style="color:#16241C; font-size:32px; margin-bottom:5px; font-family:'Cairo',sans-serif;">القوائم المالية</h1>
-        <h2 style="color:#A9782E; font-size:22px; font-weight:400; margin-bottom:30px;">فهرس المحتويات</h2>
-        <div style="border-bottom:3px solid #A9782E; width:80px; margin:0 auto;"></div>
-      </div>
-      <div style="text-align:right; max-width:500px; margin:0 auto; font-size:18px; line-height:3;">
+    <div class="pdf-page" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+      <h1 style="color:#16241C;font-size:32px;margin-bottom:5px;font-family:'Cairo',sans-serif;">القوائم المالية</h1>
+      <h2 style="color:#A9782E;font-size:22px;font-weight:400;margin-bottom:30px;">فهرس المحتويات</h2>
+      <div style="border-bottom:3px solid #A9782E;width:80px;margin:0 auto 30px;"></div>
+      <div style="text-align:right;max-width:500px;margin:0 auto;font-size:18px;line-height:3;">
         <p>📊 <strong>قائمة الدخل</strong> — صفحة 2</p>
         <p>📊 <strong>المركز المالي</strong> — صفحة 3</p>
         <p>📊 <strong>قائمة التدفقات النقدية</strong> — صفحة 4</p>
@@ -1590,10 +1829,10 @@ function exportToPDF() {
         <p>📊 <strong>التقرير التحليلي</strong> — صفحة 6</p>
         <p>📊 <strong>ملخص ميزان المراجعة</strong> — صفحة 7</p>
       </div>
-      <div style="margin-top:40px; padding-top:20px; border-top:2px solid #A9782E; text-align:center; font-size:12px; color:#7A8F7A;">
+      <div style="margin-top:40px;padding-top:20px;border-top:2px solid #A9782E;font-size:12px;color:#7A8F7A;">
         <p>تم التوليد بواسطة مولد القوائم المالية</p>
         <p>أ. أحمد عبدالكريم — mr.ahmed22296@gmail.com — 60085043 / 01201487209</p>
-        <p style="margin-top:10px; font-size:11px;">© 2026 جميع الحقوق محفوظة</p>
+        <p style="margin-top:10px;font-size:11px;">© 2026 جميع الحقوق محفوظة</p>
       </div>
     </div>
   `;
@@ -1601,72 +1840,52 @@ function exportToPDF() {
   
   // ====== صفحة 2: قائمة الدخل ======
   const incomeHtml = renderIncomeStatement(data.income_statement);
-  printContainer.innerHTML += createPDFPage('قائمة الدخل', incomeHtml, 2, 7);
+  printContainer.innerHTML += createPage('قائمة الدخل', incomeHtml, 2, 7);
   
   // ====== صفحة 3: المركز المالي ======
   const balanceHtml = renderBalanceSheet(data.balance_sheet);
-  printContainer.innerHTML += createPDFPage('المركز المالي', balanceHtml, 3, 7);
+  printContainer.innerHTML += createPage('المركز المالي', balanceHtml, 3, 7);
   
   // ====== صفحة 4: قائمة التدفقات النقدية ======
   const cashflowHtml = renderCashFlow(data.cash_flow);
-  printContainer.innerHTML += createPDFPage('قائمة التدفقات النقدية', cashflowHtml, 4, 7);
+  printContainer.innerHTML += createPage('قائمة التدفقات النقدية', cashflowHtml, 4, 7);
   
   // ====== صفحة 5: الإيضاحات المحاسبية ======
   const notesHtml = renderNotes(data);
-  printContainer.innerHTML += createPDFPage('الإيضاحات المحاسبية', notesHtml, 5, 7);
+  printContainer.innerHTML += createPage('الإيضاحات المحاسبية', notesHtml, 5, 7);
   
   // ====== صفحة 6: التقرير التحليلي ======
   const analysisHtml = renderAnalysis(data.analytical_report);
-  printContainer.innerHTML += createPDFPage('التقرير التحليلي', analysisHtml, 6, 7);
+  printContainer.innerHTML += createPage('التقرير التحليلي', analysisHtml, 6, 7);
   
   // ====== صفحة 7: ملخص ميزان المراجعة ======
-  let tbHtml = '<table class="stmt-table" style="width:100%;border-collapse:collapse;font-size:14px;">';
-  tbHtml += '<thead><tr style="border-bottom:2px solid #A9782E;"><th style="padding:8px 6px;text-align:right;">#</th><th style="padding:8px 6px;text-align:right;">اسم الحساب</th><th style="padding:8px 6px;text-align:left;">مدين</th><th style="padding:8px 6px;text-align:left;">دائن</th><th style="padding:8px 6px;text-align:right;">التصنيف</th></tr></thead><tbody>';
+  let tbHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+  tbHtml += '<thead><tr style="border-bottom:2px solid #A9782E;"><th style="padding:6px 4px;text-align:right;">#</th><th style="padding:6px 4px;text-align:right;">اسم الحساب</th><th style="padding:6px 4px;text-align:left;">مدين</th><th style="padding:6px 4px;text-align:left;">دائن</th><th style="padding:6px 4px;text-align:right;">التصنيف</th></tr></thead><tbody>';
   rows.forEach((r, i) => {
     if (r.name && r.name.trim() !== '') {
-      tbHtml += `<tr style="border-bottom:1px solid #ddd;"><td style="padding:6px 4px;">${i+1}</td><td style="padding:6px 4px;">${esc(r.name)}</td><td style="padding:6px 4px;text-align:left;font-family:'IBM Plex Mono',monospace;">${fmt(r.debit)}</td><td style="padding:6px 4px;text-align:left;font-family:'IBM Plex Mono',monospace;">${fmt(r.credit)}</td><td style="padding:6px 4px;">${r.cat || 'غير مصنف'}</td></tr>`;
+      tbHtml += `<tr style="border-bottom:1px solid #ddd;"><td style="padding:4px 3px;">${i+1}</td><td style="padding:4px 3px;">${esc(r.name)}</td><td style="padding:4px 3px;text-align:left;font-family:'IBM Plex Mono',monospace;">${fmt(r.debit)}</td><td style="padding:4px 3px;text-align:left;font-family:'IBM Plex Mono',monospace;">${fmt(r.credit)}</td><td style="padding:4px 3px;">${r.cat || 'غير مصنف'}</td></tr>`;
     }
   });
   tbHtml += '</tbody></table>';
-  tbHtml += '<div style="margin-top:20px;display:flex;gap:20px;flex-wrap:wrap;font-size:14px;">';
-  tbHtml += '<div style="background:#f5f0e8;border-radius:8px;padding:10px 16px;">إجمالي المدين: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(rows.reduce((s, r) => s + (Number(r.debit) || 0), 0)) + '</strong></div>';
-  tbHtml += '<div style="background:#f5f0e8;border-radius:8px;padding:10px 16px;">إجمالي الدائن: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(rows.reduce((s, r) => s + (Number(r.credit) || 0), 0)) + '</strong></div>';
-  const diff = rows.reduce((s, r) => s + (Number(r.debit) || 0), 0) - rows.reduce((s, r) => s + (Number(r.credit) || 0), 0);
-  tbHtml += '<div style="background:#f5f0e8;border-radius:8px;padding:10px 16px;">الفرق: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(diff) + '</strong></div>';
-  tbHtml += '<div style="background:' + (Math.abs(diff) < 0.01 ? '#E4F1E9' : '#F7E7E5') + ';border-radius:8px;padding:10px 16px;font-weight:700;">' + (Math.abs(diff) < 0.01 ? '✅ متوازن' : '⚠ غير متوازن') + '</div>';
+  tbHtml += '<div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;font-size:13px;">';
+  const totalDebit = rows.reduce((s, r) => s + (Number(r.debit) || 0), 0);
+  const totalCredit = rows.reduce((s, r) => s + (Number(r.credit) || 0), 0);
+  const diff = totalDebit - totalCredit;
+  tbHtml += '<div style="background:#f5f0e8;border-radius:6px;padding:8px 14px;">إجمالي المدين: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(totalDebit) + '</strong></div>';
+  tbHtml += '<div style="background:#f5f0e8;border-radius:6px;padding:8px 14px;">إجمالي الدائن: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(totalCredit) + '</strong></div>';
+  tbHtml += '<div style="background:#f5f0e8;border-radius:6px;padding:8px 14px;">الفرق: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(diff) + '</strong></div>';
+  tbHtml += '<div style="background:' + (Math.abs(diff) < 0.01 ? '#E4F1E9' : '#F7E7E5') + ';border-radius:6px;padding:8px 14px;font-weight:700;">' + (Math.abs(diff) < 0.01 ? '✅ متوازن' : '⚠ غير متوازن') + '</div>';
   tbHtml += '</div>';
   
-  printContainer.innerHTML += createPDFPage('ملخص ميزان المراجعة', tbHtml, 7, 7);
+  printContainer.innerHTML += createPage('ملخص ميزان المراجعة', tbHtml, 7, 7);
   
-  // إضافة إلى الصفحة
-  document.body.appendChild(printContainer);
+  // عرض صفحة الطباعة
+  window.print();
   
-  // خيارات PDF
-  const opt = {
-    margin: [0.4, 0.4, 0.4, 0.4],
-    filename: 'القوائم_المالية_الكاملة.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { 
-      scale: 2, 
-      letterRendering: true,
-      useCORS: true,
-      logging: false
-    },
-    jsPDF: { 
-      unit: 'in', 
-      format: 'a4', 
-      orientation: 'portrait' 
-    },
-    pagebreak: { mode: ['css', 'legacy'] }
-  };
-  
-  html2pdf().set(opt).from(printContainer).save().then(() => {
-    document.body.removeChild(printContainer);
-  }).catch((err) => {
-    console.error('PDF Error:', err);
-    document.body.removeChild(printContainer);
-    alert('حدث خطأ أثناء إنشاء PDF. حاول استخدام خيار الطباعة (Ctrl+P) بدلاً من ذلك.');
-  });
+  // إعادة إخفاء المحتوى بعد الطباعة
+  setTimeout(() => {
+    printContainer.style.display = 'none';
+  }, 1000);
 }
 
 loadSample();
