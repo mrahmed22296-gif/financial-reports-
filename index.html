@@ -93,6 +93,10 @@
   table.tb-table input[type=number]{
     width:100%; border:1px solid transparent; background:transparent; font-family:'IBM Plex Mono',monospace; direction:ltr; text-align:left; font-size:14px; padding:6px 6px; border-radius:6px;
   }
+  table.tb-table select{
+    width:100%; border:1px solid var(--paper-line); background:var(--white); font-family:'Tajawal',sans-serif; font-size:13px; padding:6px 4px; border-radius:6px; color:var(--ink);
+  }
+  table.tb-table select.unclassified{ border-color:var(--signal); background:var(--signal-soft); color:var(--signal);}
   table.tb-table input:focus{ outline:none; background:var(--white); border-color:var(--paper-line);}
   table.tb-table tr:hover td{ background:rgba(169,120,46,0.05);}
   .del-btn{ background:none; border:none; color:var(--signal); cursor:pointer; font-size:16px; padding:4px 8px; border-radius:8px;}
@@ -232,8 +236,9 @@
         <tr>
           <th style="width:34px;">#</th>
           <th>اسم الحساب</th>
-          <th style="width:150px;">مدين</th>
-          <th style="width:150px;">دائن</th>
+          <th style="width:130px;">مدين</th>
+          <th style="width:130px;">دائن</th>
+          <th style="width:190px;">التصنيف المحاسبي</th>
           <th style="width:40px;"></th>
         </tr>
       </thead>
@@ -242,6 +247,7 @@
 
     <div class="tb-tools">
       <button class="btn btn-brass" onclick="addRow()">＋ إضافة حساب</button>
+      <button class="btn btn-ghost" onclick="autoClassifyAll()">🏷 تصنيف تلقائي للحسابات</button>
       <button class="btn btn-ghost" onclick="loadSample()">↺ إعادة تحميل المثال</button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 مسح الكل</button>
     </div>
@@ -252,15 +258,11 @@
       <div class="tb-total-pill">الفرق: <b class="num" id="pillDiff">0</b></div>
     </div>
 
-    <div class="warn-box" id="unbalancedWarn">⚠ ميزان المراجعة غير متوازن حالياً. يمكنك المتابعة على أي حال — سيُشار إلى ذلك في التقرير التحليلي مع افتراضات معقولة لإكمال القوائم.</div>
+    <div class="warn-box" id="unbalancedWarn">⚠ ميزان المراجعة غير متوازن حالياً. يمكنك المتابعة على أي حال — سيُشار إلى ذلك صراحة في التقرير التحليلي.</div>
+    <div class="warn-box" id="unclassifiedWarn">⚠ توجد حسابات غير مصنفة (محددة باللون الأحمر في عمود التصنيف). صنّفها يدوياً أو اضغط "تصنيف تلقائي للحسابات" قبل التوليد.</div>
 
     <div class="gen-row">
       <button class="btn btn-main" id="genBtn" onclick="generateStatements()">⚡ توليد القوائم المالية الكاملة</button>
-    </div>
-
-    <div class="loading" id="loadingBox">
-      <div class="spinner"></div>
-      <span>جارِ تحليل الحسابات وإعداد القوائم المالية والإيضاحات…</span>
     </div>
 
     <div class="error-box" id="errorBox"></div>
@@ -292,6 +294,103 @@
 let rows = [];
 let rowIdCounter = 0;
 
+const CATEGORY_GROUPS = [
+  {label:'الأصول المتداولة', opts:[
+    ['cash','نقدية وما يعادلها'],
+    ['ar','حسابات مدينة (عملاء)'],
+    ['inventory','مخزون'],
+    ['prepaid','مصروفات مدفوعة مقدماً'],
+    ['other_ca','أصول متداولة أخرى'],
+  ]},
+  {label:'الأصول غير المتداولة', opts:[
+    ['ppe','أصول ثابتة (بالتكلفة)'],
+    ['accum_dep','مجمع إهلاك (مخصوم من الأصول الثابتة)'],
+    ['intangible','أصول غير ملموسة'],
+    ['other_nca','أصول غير متداولة أخرى'],
+  ]},
+  {label:'الالتزامات المتداولة', opts:[
+    ['ap','حسابات دائنة (موردون)'],
+    ['accrued','مصروفات مستحقة'],
+    ['st_loan','قروض قصيرة الأجل'],
+    ['other_cl','التزامات متداولة أخرى'],
+  ]},
+  {label:'الالتزامات غير المتداولة', opts:[
+    ['lt_loan','قروض طويلة الأجل'],
+    ['eosb','مكافأة نهاية الخدمة'],
+    ['other_ncl','التزامات غير متداولة أخرى'],
+  ]},
+  {label:'حقوق الملكية', opts:[
+    ['capital','رأس المال'],
+    ['reserves','احتياطيات'],
+    ['retained','أرباح مبقاة (رصيد أول المدة)'],
+    ['dividends','توزيعات أرباح (مخصومة من حقوق الملكية)'],
+  ]},
+  {label:'الإيرادات', opts:[
+    ['revenue','إيرادات / مبيعات'],
+    ['other_income','إيرادات أخرى'],
+  ]},
+  {label:'المصروفات', opts:[
+    ['cogs','تكلفة المبيعات'],
+    ['sga','مصاريف بيعية وتسويقية وعمومية وإدارية'],
+    ['depreciation','إهلاك واستهلاك'],
+    ['finance_cost','مصاريف تمويلية (فوائد)'],
+    ['tax','ضريبة / زكاة'],
+    ['other_expense','مصاريف أخرى'],
+  ]},
+];
+const CATEGORY_LABELS = {};
+CATEGORY_GROUPS.forEach(g => g.opts.forEach(([v,l]) => CATEGORY_LABELS[v] = l));
+
+const DEBIT_NATURE = new Set(['cash','ar','inventory','prepaid','other_ca','ppe','intangible','other_nca','cogs','sga','depreciation','finance_cost','tax','other_expense','dividends']);
+
+const CLASSIFY_RULES = [
+  [/مجمع\s*إهلاك|accum(ulated)?\s*dep/i, 'accum_dep'],
+  [/إهلاك|استهلاك|depreciation|amorti[sz]ation/i, 'depreciation'],
+  [/نقد|صندوق|بنك|cash|bank/i, 'cash'],
+  [/مدين|عملاء|receivable|customers?/i, 'ar'],
+  [/مخزون|inventory|stock/i, 'inventory'],
+  [/مقدماً|مقدم|prepaid/i, 'prepaid'],
+  [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property, plant/i, 'ppe'],
+  [/غير ملموس|شهرة|براءة|intangible|goodwill|patent/i, 'intangible'],
+  [/دائن|موردون|payable|suppliers?/i, 'ap'],
+  [/مستحق|accrued/i, 'accrued'],
+  [/قرض.*قصير|قصير.*قرض|short.?term loan/i, 'st_loan'],
+  [/قرض.*طويل|طويل.*قرض|long.?term loan/i, 'lt_loan'],
+  [/مكافأة|نهاية الخدمة|end of service|gratuity/i, 'eosb'],
+  [/رأس المال|capital stock|share capital/i, 'capital'],
+  [/احتياطي|reserve/i, 'reserves'],
+  [/أرباح مبقاة|أرباح مدورة|retained earnings/i, 'retained'],
+  [/توزيعات|dividends?/i, 'dividends'],
+  [/إيرادات أخرى|other income/i, 'other_income'],
+  [/مبيعات|إيرادات|revenue|sales/i, 'revenue'],
+  [/تكلفة المبيعات|cost of (goods|sales)|cogs/i, 'cogs'],
+  [/تمويل|فوائد|فائدة|interest expense|finance cost/i, 'finance_cost'],
+  [/ضريبة|زكاة|tax|zakat/i, 'tax'],
+  [/مصاريف أخرى|other expense/i, 'other_expense'],
+  [/بيعي|تسويق|إداري|عمومي|selling|marketing|admin|general expense/i, 'sga'],
+];
+
+function classifyAccount(name){
+  for(const [re, cat] of CLASSIFY_RULES){
+    if(re.test(name)) return cat;
+  }
+  return '';
+}
+
+function categorySelectHTML(rowId, selected){
+  let html = `<select data-field="cat" data-id="${rowId}" class="${selected ? '' : 'unclassified'}">`;
+  html += `<option value="">— اختر التصنيف —</option>`;
+  CATEGORY_GROUPS.forEach(g => {
+    html += `<optgroup label="${esc(g.label)}">`;
+    g.opts.forEach(([v,l]) => {
+      html += `<option value="${v}" ${v===selected?'selected':''}>${esc(l)}</option>`;
+    });
+    html += `</optgroup>`;
+  });
+  html += `</select>`;
+  return html;
+}
+
 function sampleRows(){
   return [
     ["النقدية وما في حكمها", 150, 0],
@@ -320,7 +419,12 @@ function sampleRows(){
 }
 
 function loadSample(){
-  rows = sampleRows().map(r => ({id: rowIdCounter++, name:r[0], debit:r[1], credit:r[2]}));
+  rows = sampleRows().map(r => ({id: rowIdCounter++, name:r[0], debit:r[1], credit:r[2], cat:classifyAccount(r[0])}));
+  renderRows();
+}
+
+function autoClassifyAll(){
+  rows.forEach(r => { if(!r.cat && r.name) r.cat = classifyAccount(r.name); });
   renderRows();
 }
 
@@ -370,7 +474,7 @@ function handleWorkbookData(json){
     const debit = debitIdx > -1 ? parseNum(r[debitIdx]) : 0;
     const credit = creditIdx > -1 ? parseNum(r[creditIdx]) : 0;
     if(debit === 0 && credit === 0) return;
-    newRows.push({id: rowIdCounter++, name, debit, credit});
+    newRows.push({id: rowIdCounter++, name, debit, credit, cat: classifyAccount(name)});
   });
 
   if(newRows.length === 0){
@@ -421,13 +525,13 @@ uploadZone.addEventListener('drop', (e) => {
 });
 
 function addRow(){
-  rows.push({id: rowIdCounter++, name:"", debit:0, credit:0});
+  rows.push({id: rowIdCounter++, name:"", debit:0, credit:0, cat:""});
   renderRows();
 }
 
 function deleteRow(id){
   rows = rows.filter(r => r.id !== id);
-  if(rows.length === 0) rows.push({id: rowIdCounter++, name:"", debit:0, credit:0});
+  if(rows.length === 0) rows.push({id: rowIdCounter++, name:"", debit:0, credit:0, cat:""});
   renderRows();
 }
 
@@ -448,10 +552,12 @@ function renderRows(){
       <td><input type="text" value="${esc(r.name)}" placeholder="اسم الحساب" data-field="name" data-id="${r.id}"></td>
       <td><input type="number" value="${r.debit || ''}" placeholder="0" data-field="debit" data-id="${r.id}"></td>
       <td><input type="number" value="${r.credit || ''}" placeholder="0" data-field="credit" data-id="${r.id}"></td>
+      <td>${categorySelectHTML(r.id, r.cat)}</td>
       <td><button class="del-btn" onclick="deleteRow(${r.id})" title="حذف الصف">✕</button></td>
     </tr>
   `).join('');
   updateTotals();
+  updateClassificationWarning();
 }
 
 document.getElementById('tbBody').addEventListener('input', (e) => {
@@ -459,10 +565,30 @@ document.getElementById('tbBody').addEventListener('input', (e) => {
   const field = e.target.dataset.field;
   const row = rows.find(r => r.id === id);
   if(!row) return;
-  if(field === 'name') row.name = e.target.value;
-  else row[field] = Number(e.target.value) || 0;
+  if(field === 'name'){
+    row.name = e.target.value;
+    if(!row.cat){
+      const suggested = classifyAccount(row.name);
+      if(suggested){
+        row.cat = suggested;
+        const sel = e.target.closest('tr').querySelector('select[data-field="cat"]');
+        if(sel){ sel.value = suggested; sel.classList.remove('unclassified'); }
+      }
+    }
+  } else if(field === 'cat'){
+    row.cat = e.target.value;
+    e.target.classList.toggle('unclassified', !e.target.value);
+  } else {
+    row[field] = Number(e.target.value) || 0;
+  }
   updateTotals();
+  updateClassificationWarning();
 });
+
+function updateClassificationWarning(){
+  const anyUnclassified = rows.some(r => r.name && r.name.trim() !== '' && !r.cat);
+  document.getElementById('unclassifiedWarn').classList.toggle('show', anyUnclassified);
+}
 
 function updateTotals(){
   const totalDebit = rows.reduce((s,r) => s + (Number(r.debit)||0), 0);
@@ -548,6 +674,7 @@ function renderIncomeStatement(d){
   }
   if(d.depreciation_amortization !== undefined) html += `<tr><td>الإهلاك والاستهلاك</td><td class="num">${fmt(d.depreciation_amortization)}</td></tr>`;
   if(d.ebit !== undefined) html += subtotalRow('الربح قبل الفوائد والضريبة (EBIT)', d.ebit);
+  if(d.finance_cost !== undefined) html += `<tr><td>مصاريف تمويلية (فوائد)</td><td class="num">${fmt(d.finance_cost)}</td></tr>`;
   if(d.tax_zakat !== undefined) html += `<tr><td>الضريبة / الزكاة</td><td class="num">${fmt(d.tax_zakat)}</td></tr>`;
   if(d.net_income !== undefined) html += subtotalRow('صافي الربح', d.net_income, true);
   html += '</tbody></table>';
@@ -659,114 +786,229 @@ function renderAnalysis(d){
   return html;
 }
 
-function buildPrompt(accounts, totals){
-  return `أنت محاسب قانوني ومحلل مالي خبير (CPA & CFA). لديك بيانات ميزان مراجعة التالية (اسم الحساب، مدين، دائن):
-
-${JSON.stringify(accounts, null, 0)}
-
-إجمالي المدين المُدخل: ${totals.totalDebit} — إجمالي الدائن المُدخل: ${totals.totalCredit} — ${totals.balanced ? 'الميزان متوازن' : 'الميزان غير متوازن، الفرق = ' + Math.abs(totals.diff)}.
-
-المطلوب: بناء قائمة الدخل، قائمة المركز المالي، قائمة التدفقات النقدية (الطريقة غير المباشرة)، الإيضاحات، والتقرير التحليلي، طبقاً لمعايير IFRS/GAAP، مع تصنيف كل حساب تحت بنده الصحيح، وإذا كان الميزان غير متوازن أو كانت هناك بيانات ناقصة (كرصيد النقدية أول المدة لغرض قائمة التدفقات) استخدم فرضيات محاسبية منطقية واذكرها صراحة في assumptions_used.
-
-أجب فقط بكائن JSON صحيح (بدون أي نص إضافي، بدون Markdown، بدون علامات كود) مطابق تماماً لهذا المخطط:
-{
-  "trial_balance_check": {"total_debit": number, "total_credit": number, "is_balanced": boolean, "difference": number, "note": "نص عربي قصير"},
-  "income_statement": {
-    "sections": [{"title":"نص","lines":[{"label":"نص","amount":number}],"subtotal_label":"نص","subtotal_amount":number}],
-    "gross_profit": number,
-    "operating_expenses": {"lines":[{"label":"نص","amount":number}], "total": number},
-    "depreciation_amortization": number,
-    "ebit": number,
-    "tax_zakat": number,
-    "net_income": number
-  },
-  "balance_sheet": {
-    "assets": {"current":[{"label":"نص","amount":number}], "current_total":number, "non_current":[{"label":"نص","amount":number}], "non_current_total":number, "total_assets":number},
-    "liabilities": {"current":[{"label":"نص","amount":number}], "current_total":number, "non_current":[{"label":"نص","amount":number}], "non_current_total":number, "total_liabilities":number},
-    "equity": {"items":[{"label":"نص","amount":number}], "total_equity":number},
-    "total_liabilities_and_equity": number,
-    "is_balanced": boolean,
-    "difference": number
-  },
-  "cash_flow": {
-    "operating": {"lines":[{"label":"نص","amount":number}], "total": number},
-    "investing": {"lines":[{"label":"نص","amount":number}], "total": number},
-    "financing": {"lines":[{"label":"نص","amount":number}], "total": number},
-    "net_change_in_cash": number,
-    "beginning_cash": number,
-    "ending_cash": number,
-    "matches_balance_sheet_cash": boolean
-  },
-  "notes": [{"title":"نص","content":"نص"}],
-  "accounting_policies": ["نص"],
-  "analytical_report": {
-    "ratios": [{"name":"نص","value":"نص","interpretation":"نص"}],
-    "key_observations": ["نص"],
-    "items_requiring_review": ["نص"],
-    "assumptions_used": ["نص"]
-  }
-}`;
+function netAmount(row){
+  const isDebitNature = DEBIT_NATURE.has(row.cat);
+  const debit = Number(row.debit) || 0;
+  const credit = Number(row.credit) || 0;
+  return isDebitNature ? (debit - credit) : (credit - debit);
 }
 
-async function generateStatements(){
+function sumCat(accounts, cat){
+  return accounts.filter(a => a.cat === cat).reduce((s,a) => s + netAmount(a), 0);
+}
+
+function linesForCat(accounts, cat, signFlip){
+  return accounts.filter(a => a.cat === cat).map(a => ({label:a.name, amount: signFlip ? -netAmount(a) : netAmount(a)}));
+}
+
+function computeStatements(accounts, tbTotals){
+  const revenueLines = linesForCat(accounts, 'revenue');
+  const otherIncomeLines = linesForCat(accounts, 'other_income');
+  const cogsLines = linesForCat(accounts, 'cogs');
+  const sgaLines = linesForCat(accounts, 'sga');
+  const otherExpenseLines = linesForCat(accounts, 'other_expense');
+
+  const revenueTotal = sumCat(accounts, 'revenue');
+  const otherIncomeTotal = sumCat(accounts, 'other_income');
+  const cogsTotal = sumCat(accounts, 'cogs');
+  const sgaTotal = sumCat(accounts, 'sga');
+  const depreciationTotal = sumCat(accounts, 'depreciation');
+  const financeCostTotal = sumCat(accounts, 'finance_cost');
+  const otherExpenseTotal = sumCat(accounts, 'other_expense');
+  const taxTotal = sumCat(accounts, 'tax');
+
+  const grossProfit = revenueTotal - cogsTotal;
+  const operatingExpTotal = sgaTotal + otherExpenseTotal;
+  const ebit = grossProfit + otherIncomeTotal - operatingExpTotal - depreciationTotal;
+  const netIncomeBeforeTax = ebit - financeCostTotal;
+  const netIncome = netIncomeBeforeTax - taxTotal;
+
+  const sections = [
+    {title:'الإيرادات', lines: revenueLines, subtotal_label:'إجمالي الإيرادات', subtotal_amount: revenueTotal},
+  ];
+  if(otherIncomeLines.length) sections.push({title:'إيرادات أخرى', lines: otherIncomeLines, subtotal_label:'إجمالي الإيرادات الأخرى', subtotal_amount: otherIncomeTotal});
+  sections.push({title:'تكلفة المبيعات', lines: cogsLines, subtotal_label:'إجمالي تكلفة المبيعات', subtotal_amount: cogsTotal});
+
+  const income_statement = {
+    sections,
+    gross_profit: grossProfit,
+    operating_expenses: {lines: sgaLines.concat(otherExpenseLines), total: operatingExpTotal},
+    depreciation_amortization: depreciationTotal,
+    ebit,
+    finance_cost: financeCostTotal,
+    tax_zakat: taxTotal,
+    net_income: netIncome
+  };
+
+  // ---- Balance Sheet ----
+  const cashTotal = sumCat(accounts, 'cash');
+  const arTotal = sumCat(accounts, 'ar');
+  const inventoryTotal = sumCat(accounts, 'inventory');
+  const prepaidTotal = sumCat(accounts, 'prepaid');
+  const otherCaTotal = sumCat(accounts, 'other_ca');
+  const currentAssetsLines = ['cash','ar','inventory','prepaid','other_ca'].flatMap(c => linesForCat(accounts, c));
+  const currentAssetsTotal = cashTotal + arTotal + inventoryTotal + prepaidTotal + otherCaTotal;
+
+  const ppeTotal = sumCat(accounts, 'ppe');
+  const accumDepTotal = sumCat(accounts, 'accum_dep');
+  const intangibleTotal = sumCat(accounts, 'intangible');
+  const otherNcaTotal = sumCat(accounts, 'other_nca');
+  const nonCurrentAssetsLines = linesForCat(accounts, 'ppe')
+    .concat(linesForCat(accounts, 'accum_dep', true))
+    .concat(linesForCat(accounts, 'intangible'))
+    .concat(linesForCat(accounts, 'other_nca'));
+  const nonCurrentAssetsTotal = ppeTotal - accumDepTotal + intangibleTotal + otherNcaTotal;
+  const totalAssets = currentAssetsTotal + nonCurrentAssetsTotal;
+
+  const apTotal = sumCat(accounts, 'ap');
+  const accruedTotal = sumCat(accounts, 'accrued');
+  const stLoanTotal = sumCat(accounts, 'st_loan');
+  const otherClTotal = sumCat(accounts, 'other_cl');
+  const currentLiabLines = ['ap','accrued','st_loan','other_cl'].flatMap(c => linesForCat(accounts, c));
+  const currentLiabTotal = apTotal + accruedTotal + stLoanTotal + otherClTotal;
+
+  const ltLoanTotal = sumCat(accounts, 'lt_loan');
+  const eosbTotal = sumCat(accounts, 'eosb');
+  const otherNclTotal = sumCat(accounts, 'other_ncl');
+  const nonCurrentLiabLines = ['lt_loan','eosb','other_ncl'].flatMap(c => linesForCat(accounts, c));
+  const nonCurrentLiabTotal = ltLoanTotal + eosbTotal + otherNclTotal;
+  const totalLiabilities = currentLiabTotal + nonCurrentLiabTotal;
+
+  const capitalTotal = sumCat(accounts, 'capital');
+  const reservesTotal = sumCat(accounts, 'reserves');
+  const retainedTotal = sumCat(accounts, 'retained');
+  const dividendsTotal = sumCat(accounts, 'dividends');
+  const equityItems = linesForCat(accounts, 'capital')
+    .concat(linesForCat(accounts, 'reserves'))
+    .concat(linesForCat(accounts, 'retained'))
+    .concat([{label:'صافي ربح الفترة الحالية', amount: netIncome}]);
+  if(dividendsTotal !== 0) equityItems.push({label:'توزيعات أرباح (مخصومة)', amount: -dividendsTotal});
+  const totalEquity = capitalTotal + reservesTotal + retainedTotal + netIncome - dividendsTotal;
+  const totalLiabEquity = totalLiabilities + totalEquity;
+
+  const balance_sheet = {
+    assets: {current: currentAssetsLines, current_total: currentAssetsTotal, non_current: nonCurrentAssetsLines, non_current_total: nonCurrentAssetsTotal, total_assets: totalAssets},
+    liabilities: {current: currentLiabLines, current_total: currentLiabTotal, non_current: nonCurrentLiabLines, non_current_total: nonCurrentLiabTotal, total_liabilities: totalLiabilities},
+    equity: {items: equityItems, total_equity: totalEquity},
+    total_liabilities_and_equity: totalLiabEquity,
+    is_balanced: Math.abs(totalAssets - totalLiabEquity) < 1,
+    difference: totalAssets - totalLiabEquity
+  };
+
+  // ---- Cash Flow (partial — see limitations note) ----
+  const cfOperatingLines = [{label:'صافي الربح', amount: netIncome}];
+  if(depreciationTotal) cfOperatingLines.push({label:'إضافة: الإهلاك والاستهلاك (بند غير نقدي)', amount: depreciationTotal});
+  const cfOperatingTotal = netIncome + depreciationTotal;
+
+  const cfFinancingLines = [];
+  if(dividendsTotal) cfFinancingLines.push({label:'توزيعات أرباح مدفوعة', amount: -dividendsTotal});
+  const cfFinancingTotal = -dividendsTotal;
+
+  const cash_flow = {
+    operating: {lines: cfOperatingLines, total: cfOperatingTotal},
+    investing: {lines: [], total: 0},
+    financing: {lines: cfFinancingLines, total: cfFinancingTotal},
+    net_change_in_cash: cfOperatingTotal + cfFinancingTotal,
+    ending_cash: cashTotal,
+    matches_balance_sheet_cash: true
+  };
+
+  // ---- Notes ----
+  const notes = [];
+  if(ppeTotal || accumDepTotal){
+    notes.push({title:'الأصول الثابتة ومجمع الإهلاك', content:
+      `إجمالي الأصول الثابتة بالتكلفة ${fmt(ppeTotal)}، مخصوماً منها مجمع الإهلاك المتراكم ${fmt(accumDepTotal)}، ليصبح صافي القيمة الدفترية ${fmt(ppeTotal-accumDepTotal)}.`});
+  }
+  if(inventoryTotal){
+    notes.push({title:'المخزون', content: `رصيد المخزون في نهاية الفترة ${fmt(inventoryTotal)}.`});
+  }
+  if(stLoanTotal || ltLoanTotal){
+    notes.push({title:'القروض', content: `قروض قصيرة الأجل ${fmt(stLoanTotal)} وقروض طويلة الأجل ${fmt(ltLoanTotal)}، بإجمالي تمويل خارجي قدره ${fmt(stLoanTotal+ltLoanTotal)}.`});
+  }
+  if(arTotal || apTotal){
+    notes.push({title:'أرصدة العملاء والموردين', content: `حسابات مدينة (عملاء) ${fmt(arTotal)}، وحسابات دائنة (موردون) ${fmt(apTotal)}.`});
+  }
+
+  const accounting_policies = [
+    'تُعرض الأصول الثابتة بالتكلفة التاريخية مخصوماً منها مجمع الإهلاك المتراكم.',
+    'يُثبت المخزون بالتكلفة أو صافي القيمة القابلة للتحقق أيهما أقل.',
+    'تُحمّل الإيرادات والمصروفات على أساس مبدأ الاستحقاق المحاسبي.',
+    'أُضيف صافي ربح الفترة الحالية إلى رصيد الأرباح المبقاة الظاهر بميزان المراجعة (المفترض أنه رصيد أول المدة) للوصول إلى الرصيد الختامي في قائمة المركز المالي.'
+  ];
+
+  // ---- Analytical report ----
+  const currentRatio = currentLiabTotal !== 0 ? currentAssetsTotal / currentLiabTotal : null;
+  const quickRatio = currentLiabTotal !== 0 ? (currentAssetsTotal - inventoryTotal) / currentLiabTotal : null;
+  const grossMargin = revenueTotal !== 0 ? grossProfit / revenueTotal : null;
+  const netMargin = revenueTotal !== 0 ? netIncome / revenueTotal : null;
+  const debtToEquity = totalEquity !== 0 ? totalLiabilities / totalEquity : null;
+
+  const pct = (v) => v === null ? '—' : (v*100).toFixed(1) + '%';
+  const ratioNum = (v) => v === null ? '—' : v.toFixed(2);
+
+  const ratios = [
+    {name:'نسبة التداول (Current Ratio)', value: ratioNum(currentRatio), interpretation: currentRatio === null ? 'لا توجد التزامات متداولة لحسابها.' : (currentRatio >= 1 ? 'الأصول المتداولة تغطي الالتزامات المتداولة.' : 'الأصول المتداولة أقل من الالتزامات المتداولة — إشارة إلى ضغط على السيولة.')},
+    {name:'نسبة السيولة السريعة (Quick Ratio)', value: ratioNum(quickRatio), interpretation:'قياس السيولة دون الاعتماد على تصريف المخزون.'},
+    {name:'هامش مجمل الربح', value: pct(grossMargin), interpretation:'نسبة الربح المتبقي بعد تكلفة المبيعات مباشرة.'},
+    {name:'هامش صافي الربح', value: pct(netMargin), interpretation:'نسبة صافي الربح إلى إجمالي الإيرادات.'},
+    {name:'نسبة الدين إلى حقوق الملكية', value: ratioNum(debtToEquity), interpretation: debtToEquity === null ? 'لا توجد حقوق ملكية لحسابها.' : (debtToEquity > 1 ? 'الشركة تعتمد على التمويل بالدين أكثر من حقوق الملكية.' : 'اعتماد معتدل على الدين مقارنة بحقوق الملكية.')}
+  ];
+
+  const key_observations = [];
+  if(!tbTotals.balanced) key_observations.push(`ميزان المراجعة المُدخل غير متوازن بفارق ${fmt(Math.abs(tbTotals.diff))} — تحقق من قيود اليومية قبل اعتماد القوائم.`);
+  if(!balance_sheet.is_balanced) key_observations.push(`قائمة المركز المالي تُظهر فارقاً قدره ${fmt(Math.abs(balance_sheet.difference))} بين الأصول ومجموع الالتزامات وحقوق الملكية، وغالباً ما يعود ذلك لعدم توازن ميزان المراجعة الأصلي أو لتصنيف حساب في غير موضعه.`);
+  if(currentRatio !== null && currentRatio < 1) key_observations.push('نسبة التداول أقل من 1 — قد تواجه الشركة صعوبة في سداد التزاماتها قصيرة الأجل.');
+  if(revenueTotal === 0) key_observations.push('لا توجد إيرادات مصنّفة ضمن ميزان المراجعة — تحقق من تصنيف حسابات المبيعات.');
+
+  const items_requiring_review = [];
+  const unclassified = accounts.filter(a => !a.cat);
+  if(unclassified.length) items_requiring_review.push(`${unclassified.length} حساب لم يُصنَّف: ${unclassified.map(a=>a.name).join('، ')}.`);
+  const zeroRows = rows.filter(r => r.name && r.name.trim()!=='' && !r.debit && !r.credit);
+  if(zeroRows.length) items_requiring_review.push('توجد حسابات بأرصدة صفرية — تأكد أنها مقصودة قبل الاعتماد النهائي.');
+
+  const assumptions_used = [
+    'الرصيد الظاهر لحساب الأرباح المبقاة في ميزان المراجعة اعتُبر رصيداً افتتاحياً (أول المدة)، وأُضيف إليه صافي ربح الفترة للوصول للرصيد الختامي.',
+    'قائمة التدفقات النقدية معروضة بشكل جزئي (صافي الربح + الإهلاك المضاف)؛ إذ يتعذر احتساب التغيرات في بنود رأس المال العامل (المدينون، المخزون، الدائنون) أو حركة الأصول الثابتة والقروض دون توفر أرصدة الفترة السابقة للمقارنة. للحصول على قائمة تدفقات نقدية كاملة، يُرجى توفير ميزان مراجعة للفترة السابقة أيضاً.'
+  ];
+
+  return {
+    trial_balance_check: {total_debit: tbTotals.totalDebit, total_credit: tbTotals.totalCredit, is_balanced: tbTotals.balanced, difference: tbTotals.diff, note: tbTotals.balanced ? 'ميزان المراجعة متوازن.' : 'ميزان المراجعة غير متوازن — راجع القيود قبل الاعتماد.'},
+    income_statement,
+    balance_sheet,
+    cash_flow,
+    notes,
+    accounting_policies,
+    analytical_report: {ratios, key_observations, items_requiring_review, assumptions_used}
+  };
+}
+
+function generateStatements(){
   const totals = updateTotals();
-  const accounts = rows.filter(r => r.name && r.name.trim() !== '').map(r => ({name:r.name, debit:Number(r.debit)||0, credit:Number(r.credit)||0}));
+  const accounts = rows.filter(r => r.name && r.name.trim() !== '' && (r.debit || r.credit)).map(r => ({name:r.name, debit:Number(r.debit)||0, credit:Number(r.credit)||0, cat:r.cat}));
+
+  const errorBox = document.getElementById('errorBox');
+  const resultsEl = document.getElementById('results');
+  errorBox.classList.remove('show');
 
   if(accounts.length === 0){
-    showError('الرجاء إدخال حساب واحد على الأقل قبل التوليد.');
+    showError('الرجاء إدخال حساب واحد على الأقل بمبلغ غير صفري قبل التوليد.');
+    return;
+  }
+  if(accounts.some(a => !a.cat)){
+    showError('توجد حسابات غير مصنّفة. اضغط "تصنيف تلقائي للحسابات" أو اختر التصنيف يدوياً لكل حساب من القائمة المنسدلة قبل التوليد.');
     return;
   }
 
-  const genBtn = document.getElementById('genBtn');
-  const loadingBox = document.getElementById('loadingBox');
-  const errorBox = document.getElementById('errorBox');
-  const resultsEl = document.getElementById('results');
+  const parsed = computeStatements(accounts, totals);
 
-  genBtn.disabled = true;
-  loadingBox.classList.add('show');
-  errorBox.classList.remove('show');
-  resultsEl.classList.remove('show');
+  document.getElementById('panel-income').innerHTML = renderIncomeStatement(parsed.income_statement);
+  document.getElementById('panel-balance').innerHTML = renderBalanceSheet(parsed.balance_sheet);
+  document.getElementById('panel-cashflow').innerHTML = renderCashFlow(parsed.cash_flow);
+  document.getElementById('panel-notes').innerHTML = renderNotes(parsed);
+  document.getElementById('panel-analysis').innerHTML = renderAnalysis(parsed.analytical_report);
 
-  try{
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 8000,
-        messages: [{role:"user", content: buildPrompt(accounts, totals)}]
-      })
-    });
-
-    if(!response.ok){
-      throw new Error('فشل الاتصال بالخدمة (رمز الحالة: ' + response.status + ')');
-    }
-
-    const data = await response.json();
-    let text = (data.content || []).map(b => b.text || '').join('').trim();
-    text = text.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
-
-    let parsed;
-    try{
-      parsed = JSON.parse(text);
-    }catch(parseErr){
-      throw new Error('تعذّر قراءة الرد كـ JSON صالح. حاول مرة أخرى.');
-    }
-
-    document.getElementById('panel-income').innerHTML = renderIncomeStatement(parsed.income_statement);
-    document.getElementById('panel-balance').innerHTML = renderBalanceSheet(parsed.balance_sheet);
-    document.getElementById('panel-cashflow').innerHTML = renderCashFlow(parsed.cash_flow);
-    document.getElementById('panel-notes').innerHTML = renderNotes(parsed);
-    document.getElementById('panel-analysis').innerHTML = renderAnalysis(parsed.analytical_report);
-
-    resultsEl.classList.add('show');
-    resultsEl.scrollIntoView({behavior:'smooth', block:'start'});
-  }catch(err){
-    showError(err.message || 'حدث خطأ غير متوقع أثناء توليد القوائم المالية.');
-  }finally{
-    genBtn.disabled = false;
-    loadingBox.classList.remove('show');
-  }
+  resultsEl.classList.add('show');
+  resultsEl.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function showError(msg){
