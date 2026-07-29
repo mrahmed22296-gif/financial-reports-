@@ -32,7 +32,7 @@
 
         header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         header h1 {
@@ -40,14 +40,13 @@
             margin-bottom: 8px;
         }
 
-        .upload-card {
+        .card {
             background-color: var(--card-bg);
-            border: 2px dashed var(--secondary-color);
             border-radius: 12px;
-            padding: 30px;
-            text-align: center;
+            padding: 25px;
             margin-bottom: 20px;
-            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
         }
 
         input[type="file"] {
@@ -57,43 +56,45 @@
         .btn {
             background-color: var(--secondary-color);
             color: white;
-            padding: 12px 28px;
+            padding: 10px 22px;
             border-radius: 6px;
             border: none;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 8px;
-            transition: background 0.2s;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
-
-        .btn-generate {
-            background-color: var(--success-color);
-            font-size: 18px;
-            padding: 14px 36px;
-        }
-
-        .btn-demo {
-            background-color: #64748b;
-        }
-
-        .file-info {
-            margin-top: 15px;
             font-size: 15px;
             font-weight: bold;
-            color: var(--primary-color);
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .btn-success { background-color: var(--success-color); }
+        .btn-secondary { background-color: #64748b; }
+
+        .mapping-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+            background-color: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .mapping-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
         }
 
         .alert {
-            padding: 15px;
-            background-color: #dbeafe;
-            color: #1e40af;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
             display: none;
             text-align: center;
             font-weight: bold;
@@ -101,17 +102,16 @@
 
         .nav-tabs {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             border-bottom: 2px solid var(--border-color);
             margin-bottom: 20px;
-            overflow-x: auto;
         }
 
         .tab-btn {
-            padding: 12px 20px;
+            padding: 10px 18px;
             border: none;
             background: none;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             color: #64748b;
             cursor: pointer;
@@ -126,192 +126,201 @@
         .tab-content {
             display: none;
             background-color: var(--card-bg);
-            padding: 25px;
+            padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        .tab-content.active {
-            display: block;
-        }
+        .tab-content.active { display: block; }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
+            margin-top: 10px;
         }
 
         th, td {
             border: 1px solid var(--border-color);
-            padding: 12px;
+            padding: 10px;
             text-align: right;
         }
 
-        th {
-            background-color: #f1f5f9;
-            color: var(--primary-color);
-        }
-
-        .total-row {
-            font-weight: bold;
-            background-color: #f8fafc;
-        }
-
-        .notes-list {
-            line-height: 1.8;
-            font-size: 16px;
-        }
-
-        .notes-list li {
-            margin-bottom: 12px;
-        }
+        th { background-color: #f8fafc; color: var(--primary-color); }
+        .total-row { font-weight: bold; background-color: #f1f5f9; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <header>
-        <h1>نظام التحليل المالي واستخراج القوائم</h1>
-        <p>ارفع ميزان المراجعة ثم اضغط على زر "قم بإنشاء التقرير"</p>
+        <h1>محلل ميزان المراجعة واستخراج القوائم المالية</h1>
+        <p>قم برفع الملف وتحديد الأعمدة للحصول على التقرير الدقيق</p>
     </header>
 
-    <!-- منطقة رفع الملف والدعم -->
-    <div class="upload-card">
-        <h3>الخطوة 1: اختيار ملف ميزان المراجعة</h3>
-        <p>يدعم صيغ (.xlsx, .xls, .csv)</p>
-        
-        <button class="btn" onclick="document.getElementById('fileInput').click()">اختيار الملف</button>
-        <button class="btn btn-demo" onclick="loadDemoData()">تجرِبة ببيانات توضيحية</button>
-        
-        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="fileSelected(event)">
-        
-        <div id="fileDetails" class="file-info">لم يتم اختيار ملف بعد</div>
-        
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--border-color);">
-        
-        <h3>الخطوة 2: إنشاء وتقييم التقرير</h3>
-        <button class="btn btn-generate" onclick="generateReport()">قم بإنشاء التقرير</button>
+    <!-- 1. رفع الملف -->
+    <div class="card" style="text-align: center;">
+        <h3>الخطوة 1: رفع ملف ميزان المراجعة</h3>
+        <button class="btn" onclick="document.getElementById('fileInput').click()">اختيار ملف Excel / CSV</button>
+        <button class="btn btn-secondary" onclick="loadDemoData()">تجربة ببيانات تجريبية</button>
+        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" onchange="handleFileSelect(event)">
+        <div id="fileName" style="margin-top: 10px; font-weight: bold;"></div>
     </div>
 
-    <!-- رسائل التنبيه -->
+    <!-- 2. ربط الأعمدة (Mapping) -->
+    <div class="card" id="mappingCard" style="display: none;">
+        <h3>الخطوة 2: مطابقة أعمدة ملفك</h3>
+        <p>اختر الأعمدة المقابلة من ملف الإكسيل لضمان قراءة المبالغ بشكل صحيح:</p>
+        
+        <div class="mapping-grid">
+            <div class="mapping-item">
+                <label>عمود اسم / بيان الحساب:</label>
+                <select id="colAccount"></select>
+            </div>
+            <div class="mapping-item">
+                <label>عمود المدين (Debit):</label>
+                <select id="colDebit"></select>
+            </div>
+            <div class="mapping-item">
+                <label>عمود الدائن (Credit):</label>
+                <select id="colCredit"></select>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn btn-success" onclick="generateFinancialStatements()">قم بإنشاء التقرير الآن</button>
+        </div>
+    </div>
+
     <div id="statusAlert" class="alert"></div>
 
-    <!-- التبويبات لعرض القوائم -->
+    <!-- 3. عرض النتائج -->
     <div class="nav-tabs" id="tabsHeader" style="display: none;">
-        <button class="tab-btn active" data-tab="incomeTab" onclick="switchTab(event, 'incomeTab')">قائمة الدخل</button>
-        <button class="tab-btn" data-tab="balanceTab" onclick="switchTab(event, 'balanceTab')">المركز المالي</button>
-        <button class="tab-btn" data-tab="cashTab" onclick="switchTab(event, 'cashTab')">التدفقات النقدية</button>
-        <button class="tab-btn" data-tab="notesTab" onclick="switchTab(event, 'notesTab')">الإيضاحات والملاحظات</button>
+        <button class="tab-btn active" onclick="switchTab(event, 'incomeTab')">قائمة الدخل</button>
+        <button class="tab-btn" onclick="switchTab(event, 'balanceTab')">المركز المالي</button>
+        <button class="tab-btn" onclick="switchTab(event, 'cashTab')">التدفقات النقدية</button>
+        <button class="tab-btn" onclick="switchTab(event, 'notesTab')">الإيضاحات والملاحظات</button>
     </div>
 
-    <!-- 1. قائمة الدخل -->
     <div id="incomeTab" class="tab-content">
-        <h2>قائمة الدخل (عن الفترة المنتهية)</h2>
-        <table id="incomeTable">
-            <thead>
-                <tr>
-                    <th>البيان</th>
-                    <th>المبلغ (د.ك / ر.س)</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
+        <h2>قائمة الدخل</h2>
+        <table>
+            <thead><tr><th>البيان</th><th>المبلغ</th></tr></thead>
+            <tbody id="incomeBody"></tbody>
         </table>
     </div>
 
-    <!-- 2. قائمة المركز المالي -->
     <div id="balanceTab" class="tab-content">
-        <h2>قائمة المركز المالي (الميزانية العمومية)</h2>
-        <table id="balanceTable">
-            <thead>
-                <tr>
-                    <th>البيان</th>
-                    <th>المبلغ (د.ك / ر.س)</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
+        <h2>قائمة المركز المالي</h2>
+        <table>
+            <thead><tr><th>البيان</th><th>المبلغ</th></tr></thead>
+            <tbody id="balanceBody"></tbody>
         </table>
     </div>
 
-    <!-- 3. قائمة التدفقات النقدية -->
     <div id="cashTab" class="tab-content">
-        <h2>قائمة التدفقات النقدية (الأسلوب غير المباشر)</h2>
-        <table id="cashTable">
-            <thead>
-                <tr>
-                    <th>النشاط / البيان</th>
-                    <th>المبلغ (د.ك / ر.س)</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
+        <h2>قائمة التدفقات النقدية</h2>
+        <table>
+            <thead><tr><th>البيان</th><th>المبلغ</th></tr></thead>
+            <tbody id="cashBody"></tbody>
         </table>
     </div>
 
-    <!-- 4. الإيضاحات والملاحظات -->
     <div id="notesTab" class="tab-content">
-        <h2>الإيضاحات المتممة والملاحظات على التقرير</h2>
-        <ul class="notes-list" id="notesContent"></ul>
+        <h2>الإيضاحات والملاحظات</h2>
+        <ul id="notesList" style="line-height: 1.8;"></ul>
     </div>
 </div>
 
 <script>
-    let uploadedRawData = null;
+    let sheetData = [];
 
-    // 1. عند إرفاق الملف
-    function fileSelected(e) {
+    // قراءة الملف
+    function handleFileSelect(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        document.getElementById('fileDetails').textContent = `الملف المختار: ${file.name}`;
+        document.getElementById('fileName').textContent = `الملف المرفوع: ${file.name}`;
         
         const reader = new FileReader();
         reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                
-                // تحويل الشيت إلى مصفوفة صفوف
-                uploadedRawData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-                showAlert('تم تحميل الملف بنجاح! اضغط الآن على زر "قم بإنشاء التقرير".', '#dbeafe', '#1e40af');
-            } catch (err) {
-                showAlert('خطأ في قراءة ملف الإكسيل. يُرجى التاكد من سلامة الملف.', '#fee2e2', '#991b1b');
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            sheetData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+            if (sheetData.length > 0) {
+                populateColumnSelectors();
+                document.getElementById('mappingCard').style.display = 'block';
+                showAlert('تم قراءة الملف! يرجى التأكد من مطابقة الأعمدة ثم اضغط إنشاء التقرير.', '#dbeafe', '#1e40af');
             }
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // تجربة ببيانات افتراضية للتأكد من شغل الصفحة
-    function loadDemoData() {
-        uploadedRawData = [
-            ["اسم الحساب", "مدين", "دائن"],
-            ["إيرادات المبيعات", 0, 150000],
-            ["تكلفة البضاعة المباعة", 80000, 0],
-            ["مصروفات العمومية والترويج", 20000, 0],
-            ["مصروف رواتب وأجور", 15000, 0],
-            ["النقدية وما في حكمها", 50000, 0],
-            ["العملاء والمدينون", 35000, 0],
-            ["الأصول الثابتة والمعدات", 100000, 0],
-            ["الموردون والدائنون", 0, 30000],
-            ["رأس المال", 0, 120000]
-        ];
-        document.getElementById('fileDetails').textContent = 'تم تحميل نموذج بيانات تجريبي جاهز!';
-        showAlert('تم تحميل البيانات التجريبية! اضغط الآن على "قم بإنشاء التقرير".', '#dbeafe', '#1e40af');
+    // تعبئة خيارات الأعمدة بناءً على صف العناوين الأول
+    function populateColumnSelectors() {
+        const headers = sheetData[0] || [];
+        const selectors = ['colAccount', 'colDebit', 'colCredit'];
+        
+        selectors.forEach(id => {
+            const select = document.getElementById(id);
+            select.innerHTML = '<option value="-1">-- غير محدد --</option>';
+            headers.forEach((h, idx) => {
+                let option = document.createElement('option');
+                option.value = idx;
+                option.textContent = h || `العمود ${idx + 1}`;
+                select.appendChild(option);
+            });
+        });
+
+        // محاولة التخمين الآلي للأعمدة
+        headers.forEach((h, idx) => {
+            let title = String(h).toLowerCase();
+            if (title.includes('حساب') || title.includes('اسم') || title.includes('بيان') || title.includes('account')) {
+                document.getElementById('colAccount').value = idx;
+            }
+            if (title.includes('مدين') || title.includes('debit')) {
+                document.getElementById('colDebit').value = idx;
+            }
+            if (title.includes('دائن') || title.includes('credit')) {
+                document.getElementById('colCredit').value = idx;
+            }
+        });
     }
 
-    // 2. دالة تنظيف الأرقام تحسباً لوجود فاصلة ألفية أو نصوص
-    function parseValue(val) {
-        if (val === undefined || val === null) return 0;
-        if (typeof val === 'number') return val;
-        let cleaned = String(val).replace(/,/g, '').trim();
-        let num = parseFloat(cleaned);
+    // بيانات تجريبية
+    function loadDemoData() {
+        sheetData = [
+            ["اسم الحساب", "المدين", "الدائن"],
+            ["إيراد المبيعات", 0, 200000],
+            ["تكلفة المبيعات", 110000, 0],
+            ["مصروفات إدارية وروااتب", 30000, 0],
+            ["مصروف إيجار", 10000, 0],
+            ["النقدية بالبنك والإنقود", 80000, 0],
+            ["العملاء والذمم المدينة", 40000, 0],
+            ["الأصول الثابتة والآلات", 120000, 0],
+            ["الموردون والذمم الدائنة", 0, 50000],
+            ["رأس المال", 0, 140000]
+        ];
+        document.getElementById('fileName').textContent = 'تم تحميل نموذج بيانات اختباري';
+        populateColumnSelectors();
+        document.getElementById('mappingCard').style.display = 'block';
+        showAlert('تم تحميل نموذج الاختبار. اضغط "قم بإنشاء التقرير الآن".', '#dbeafe', '#1e40af');
+    }
+
+    function parseNum(val) {
+        if (!val) return 0;
+        let num = parseFloat(String(val).replace(/,/g, '').trim());
         return isNaN(num) ? 0 : num;
     }
 
-    // 3. تحليل ميزان المراجعة واستخراج القوائم عند الضغط على الزر
-    function generateReport() {
-        if (!uploadedRawData || uploadedRawData.length === 0) {
-            showAlert('يرجى اختيار ملف ميزان المراجعة أولاً أو الضغط على تجربة ببيانات توضيحية!', '#fee2e2', '#991b1b');
+    // حساب وإنشاء القوائم المالية
+    function generateFinancialStatements() {
+        const accIdx = parseInt(document.getElementById('colAccount').value);
+        const debIdx = parseInt(document.getElementById('colDebit').value);
+        const creIdx = parseInt(document.getElementById('colCredit').value);
+
+        if (accIdx === -1) {
+            showAlert('يرجى تحديد عمود "اسم / بيان الحساب" على الأقل!', '#fee2e2', '#991b1b');
             return;
         }
 
@@ -319,99 +328,94 @@
         let assets = 0, liabilities = 0, equity = 0;
         let cash = 0, receivables = 0;
 
-        uploadedRawData.forEach((row) => {
-            if (!row || row.length < 2) return;
+        // التكرار على الصفوف (باستثناء صف العناوين الأول)
+        for (let i = 1; i < sheetData.length; i++) {
+            const row = sheetData[i];
+            if (!row || !row[accIdx]) continue;
 
-            // دمج الصف لمعرفة اسم الحساب
-            let rowString = row.join(' ').toLowerCase();
+            const accName = String(row[accIdx]).trim();
+            const debit = debIdx !== -1 ? parseNum(row[debIdx]) : 0;
+            const credit = creIdx !== -1 ? parseNum(row[creIdx]) : 0;
+            const net = debit - credit;
+            const absVal = Math.abs(net) || Math.max(debit, credit);
 
-            // جمع كافة الأرقام المتاحة في الصف
-            let rowNumbers = row.map(v => parseValue(v)).filter(v => v !== 0);
-            if (rowNumbers.length === 0) return;
+            const text = accName.toLowerCase();
 
-            // القيمة المقابلة للحساب
-            let val = Math.abs(rowNumbers[0]);
-
-            // التصنيف الذكي بناءً على المسميات المحاسبية
-            if (rowString.includes('إيراد') || rowString.includes('ايراد') || rowString.includes('مبيعات') || rowString.includes('أرباح') || rowString.includes('ارباح')) {
-                revenues += val;
-            } else if (rowString.includes('مصروف') || rowString.includes('تكلفة') || rowString.includes('تكاليف') || rowString.includes('رواتب') || rowString.includes('إيجار') || rowString.includes('ايجار') || rowString.includes('استهلاك')) {
-                expenses += val;
-            } else if (rowString.includes('نقدية') || rowString.includes('بنك') || rowString.includes('صندوق') || rowString.includes('كاش')) {
-                cash += val;
-                assets += val;
-            } else if (rowString.includes('عملاء') || rowString.includes('ذمم مدينة') || rowString.includes('مدينة')) {
-                receivables += val;
-                assets += val;
-            } else if (rowString.includes('أصول') || rowString.includes('اصول') || rowString.includes('معدات') || rowString.includes('سيارات') || rowString.includes('مباني') || rowString.includes('بضاعة')) {
-                assets += val;
-            } else if (rowString.includes('موردين') || rowString.includes('دائنة') || rowString.includes('قروض') || rowString.includes('التزامات')) {
-                liabilities += val;
-            } else if (rowString.includes('رأس المال') || rowString.includes('راس المال') || rowString.includes('أرباح مراحل') || rowString.includes('حقوق الملكية')) {
-                equity += val;
+            if (text.includes('إيراد') || text.includes('ايراد') || text.includes('مبيعات') || text.includes('ارباح') || text.includes('أرباح')) {
+                revenues += (credit > 0 ? credit : absVal);
+            } else if (text.includes('مصروف') || text.includes('تكلفة') || text.includes('رواتب') || text.includes('ايجار') || text.includes('إيجار') || text.includes('مشتريات')) {
+                expenses += (debit > 0 ? debit : absVal);
+            } else if (text.includes('نقدية') || text.includes('بنك') || text.includes('صندوق') || text.includes('كاش')) {
+                cash += absVal;
+                assets += absVal;
+            } else if (text.includes('عملاء') || text.includes('مدينة') || text.includes('ذمم')) {
+                receivables += absVal;
+                assets += absVal;
+            } else if (text.includes('أصول') || text.includes('اصول') || text.includes('معدات') || text.includes('سيارات') || text.includes('بضاعة')) {
+                assets += absVal;
+            } else if (text.includes('موردين') || text.includes('دائنة') || text.includes('قروض') || text.includes('التزامات')) {
+                liabilities += absVal;
+            } else if (text.includes('رأس المال') || text.includes('راس المال') || text.includes('حقوق الملكية')) {
+                equity += absVal;
             }
-        });
+        }
 
         const netIncome = revenues - expenses;
         const totalEquity = equity + netIncome;
 
-        // ملء الجدول 1: قائمة الدخل
-        document.querySelector('#incomeTable tbody').innerHTML = `
-            <tr><td>إجمالي الإيرادات</td><td>${revenues.toLocaleString('ar-EG')}</td></tr>
-            <tr><td>إجمالي المصروفات والتكاليف</td><td>(${expenses.toLocaleString('ar-EG')})</td></tr>
-            <tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>${netIncome.toLocaleString('ar-EG')}</td></tr>
+        // 1. قائمة الدخل
+        document.getElementById('incomeBody').innerHTML = `
+            <tr><td>إجمالي الإيرادات والمبيعات</td><td>${revenues.toLocaleString()}</td></tr>
+            <tr><td>إجمالي المصروفات والتكاليف</td><td>(${expenses.toLocaleString()})</td></tr>
+            <tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>${netIncome.toLocaleString()}</td></tr>
         `;
 
-        // ملء الجدول 2: المركز المالي
-        document.querySelector('#balanceTable tbody').innerHTML = `
-            <tr><td>الأصول (متضمنة النقدية والعملاء والأصول الثابتة)</td><td>${assets.toLocaleString('ar-EG')}</td></tr>
-            <tr class="total-row"><td>إجمالي الأصول</td><td>${assets.toLocaleString('ar-EG')}</td></tr>
-            <tr><td>الالتزامات (الموردون والدائنون)</td><td>${liabilities.toLocaleString('ar-EG')}</td></tr>
-            <tr><td>حقوق الملكية (رأس المال + أرباح الفترة)</td><td>${totalEquity.toLocaleString('ar-EG')}</td></tr>
-            <tr class="total-row"><td>إجمالي الالتزامات وحقوق الملكية</td><td>${(liabilities + totalEquity).toLocaleString('ar-EG')}</td></tr>
+        // 2. المركز المالي
+        document.getElementById('balanceBody').innerHTML = `
+            <tr><td>الأصول (تشتمل النقدية والعملاء والأصول الثابتة)</td><td>${assets.toLocaleString()}</td></tr>
+            <tr class="total-row"><td>إجمالي الأصول</td><td>${assets.toLocaleString()}</td></tr>
+            <tr><td>الالتزامات (الموردين والديون)</td><td>${liabilities.toLocaleString()}</td></tr>
+            <tr><td>حقوق الملكية (متضمنة نتائج الفترة)</td><td>${totalEquity.toLocaleString()}</td></tr>
+            <tr class="total-row"><td>إجمالي الالتزامات وحقوق الملكية</td><td>${(liabilities + totalEquity).toLocaleString()}</td></tr>
         `;
 
-        // ملء الجدول 3: التدفقات النقدية
-        document.querySelector('#cashTable tbody').innerHTML = `
-            <tr><td>صافي الربح قبل التغيرات</td><td>${netIncome.toLocaleString('ar-EG')}</td></tr>
-            <tr><td>التغير في الذمم المدينة (العملاء)</td><td>(${receivables.toLocaleString('ar-EG')})</td></tr>
-            <tr class="total-row"><td>صافي النقدية المتوفرة في نهاية الفترة</td><td>${cash.toLocaleString('ar-EG')}</td></tr>
+        // 3. التدفقات النقدية
+        document.getElementById('cashBody').innerHTML = `
+            <tr><td>صافي الربح قبل التغيرات</td><td>${netIncome.toLocaleString()}</td></tr>
+            <tr><td>التغير في الذمم المدينة (العملاء)</td><td>(${receivables.toLocaleString()})</td></tr>
+            <tr class="total-row"><td>صافي النقدية المتوفرة في نهاية الفترة</td><td>${cash.toLocaleString()}</td></tr>
         `;
 
-        // ملء الإيضاحات والملاحظات
-        document.getElementById('notesContent').innerHTML = `
-            <li><strong>السياسات المحاسبية:</strong> تم استخراج التقارير بناءً على البيانات المحاسبية المدخلة بميزان المراجعة.</li>
-            <li><strong>رصيد النقدية:</strong> يبلغ إجمالي النقدية في البنوك والصناديق <strong>${cash.toLocaleString('ar-EG')}</strong>.</li>
-            <li><strong>نتيجة النشاط:</strong> حققت المنشأة صافي أرباح قدرها <strong>${netIncome.toLocaleString('ar-EG')}</strong> خلال هذه الفترة.</li>
-            <li><strong>ملاحظة الميزانية:</strong> إجمالي الأصول هو <strong>${assets.toLocaleString('ar-EG')}</strong> مقابل إجمالي التزامات وحقوق ملكية <strong>${(liabilities + totalEquity).toLocaleString('ar-EG')}</strong>.</li>
+        // 4. الملاحظات
+        document.getElementById('notesList').innerHTML = `
+            <li><strong>السياسات المحاسبية:</strong> تم حساب القوائم بناءً على مطابقة الأعمدة المحددة.</li>
+            <li><strong>السيولة والنقدية:</strong> يبلغ رصيد النقدية والبنوك <strong>${cash.toLocaleString()}</strong>.</li>
+            <li><strong>نتائج الأعمال:</strong> أظهرت قائمة الدخل تحقيق صافي أرباح بمقدار <strong>${netIncome.toLocaleString()}</strong>.</li>
         `;
 
-        // إظهار التبويبات
         document.getElementById('tabsHeader').style.display = 'flex';
         switchTab(null, 'incomeTab');
-        showAlert('تم إنشاء كافة القوائم المالية والملاحظات بنجاح!', '#dcfce7', '#15803d');
+        showAlert('تم استخراج القوائم المالية بنجاح!', '#dcfce7', '#15803d');
     }
 
     function switchTab(evt, tabId) {
-        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
 
         document.getElementById(tabId).classList.add('active');
-
         if (evt && evt.currentTarget) {
             evt.currentTarget.classList.add('active');
         } else {
-            const defaultBtn = document.querySelector(`[data-tab="${tabId}"]`);
-            if (defaultBtn) defaultBtn.classList.add('active');
+            document.querySelector('.tab-btn').classList.add('active');
         }
     }
 
-    function showAlert(text, bgColor, textColor) {
-        const box = document.getElementById('statusAlert');
-        box.style.display = 'block';
-        box.style.backgroundColor = bgColor;
-        box.style.color = textColor;
-        box.textContent = text;
+    function showAlert(msg, bg, color) {
+        const a = document.getElementById('statusAlert');
+        a.style.display = 'block';
+        a.style.backgroundColor = bg;
+        a.style.color = color;
+        a.textContent = msg;
     }
 </script>
 
