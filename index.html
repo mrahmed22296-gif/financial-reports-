@@ -343,37 +343,171 @@ CATEGORY_GROUPS.forEach(g => g.opts.forEach(([v,l]) => CATEGORY_LABELS[v] = l));
 
 const DEBIT_NATURE = new Set(['cash','ar','inventory','prepaid','other_ca','ppe','intangible','other_nca','cogs','sga','depreciation','finance_cost','tax','other_expense','dividends']);
 
+// ====== IMPROVED CLASSIFICATION RULES ======
 const CLASSIFY_RULES = [
-  [/مجمع\s*إهلاك|accum(ulated)?\s*dep/i, 'accum_dep'],
-  [/إهلاك|استهلاك|depreciation|amorti[sz]ation/i, 'depreciation'],
-  [/نقد|صندوق|بنك|cash|bank/i, 'cash'],
-  [/مدين|عملاء|receivable|customers?/i, 'ar'],
-  [/مخزون|inventory|stock/i, 'inventory'],
-  [/مقدماً|مقدم|prepaid/i, 'prepaid'],
-  [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property, plant/i, 'ppe'],
-  [/غير ملموس|شهرة|براءة|intangible|goodwill|patent/i, 'intangible'],
-  [/دائن|موردون|payable|suppliers?/i, 'ap'],
-  [/مستحق|accrued/i, 'accrued'],
-  [/قرض.*قصير|قصير.*قرض|short.?term loan/i, 'st_loan'],
-  [/قرض.*طويل|طويل.*قرض|long.?term loan/i, 'lt_loan'],
-  [/مكافأة|نهاية الخدمة|end of service|gratuity/i, 'eosb'],
-  [/رأس المال|capital stock|share capital/i, 'capital'],
-  [/احتياطي|reserve/i, 'reserves'],
-  [/أرباح مبقاة|أرباح مدورة|retained earnings/i, 'retained'],
-  [/توزيعات|dividends?/i, 'dividends'],
-  [/إيرادات أخرى|other income/i, 'other_income'],
-  [/مبيعات|إيرادات|revenue|sales/i, 'revenue'],
-  [/تكلفة المبيعات|cost of (goods|sales)|cogs/i, 'cogs'],
-  [/تمويل|فوائد|فائدة|interest expense|finance cost/i, 'finance_cost'],
-  [/ضريبة|زكاة|tax|zakat/i, 'tax'],
-  [/مصاريف أخرى|other expense/i, 'other_expense'],
-  [/بيعي|تسويق|إداري|عمومي|selling|marketing|admin|general expense/i, 'sga'],
+  // Accumulated depreciation & depreciation
+  [/مجمع\s*إهلاك|مجمع\s*استهلاك|accum(ulated)?\s*dep|accumulated\s*amort/i, 'accum_dep'],
+  [/إهلاك|استهلاك|depreciation|amorti[sz]ation|اهلاك|استهلاك\s*الأصول/i, 'depreciation'],
+  
+  // Cash & banks
+  [/نقدية|نقد\s*|صندوق|بنك|cash|bank|حساب\s*جاري|شيكات\s*تحصيل/i, 'cash'],
+  
+  // Accounts receivable
+  [/مدين|عملاء|receivable|customers?|حسابات\s*مدينة|ذمم\s*مدينة|اوراق\s*قبض/i, 'ar'],
+  
+  // Inventory
+  [/مخزون|inventory|stock|بضاعة|مواد\s*خام|بضائع/i, 'inventory'],
+  
+  // Prepaid
+  [/مقدم|مقدماً|prepaid|مصروفات\s*مقدمة|مصروف\s*مقدم|تأمين\s*مقدم/i, 'prepaid'],
+  
+  // Property, plant & equipment
+  [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property, plant|أصول\s*ثابتة|معدات\s*مكتبية/i, 'ppe'],
+  
+  // Intangible assets
+  [/غير ملموس|شهرة|براءة|intangible|goodwill|patent|حقوق\s*امتياز/i, 'intangible'],
+  
+  // Accounts payable
+  [/دائن|موردون|payable|suppliers?|حسابات\s*دائنة|ذمم\s*دائنة|اوراق\s*دفع/i, 'ap'],
+  
+  // Accrued expenses
+  [/مستحق|accrued|مصروفات\s*مستحقة|مستحقات\s*موظفين/i, 'accrued'],
+  
+  // Short-term loans
+  [/قرض.*قصير|قصير.*قرض|short.?term loan|سلف\s*قصيرة|قروض\s*قصيرة/i, 'st_loan'],
+  
+  // Long-term loans
+  [/قرض.*طويل|طويل.*قرض|long.?term loan|قروض\s*طويلة|سلف\s*طويلة/i, 'lt_loan'],
+  
+  // End of service benefits
+  [/مكافأة|نهاية الخدمة|end of service|gratuity|تعويضات\s*نهاية\s*خدمة/i, 'eosb'],
+  
+  // Capital
+  [/رأس المال|capital stock|share capital|رأس\s*مال|اسهم\s*رأسمالية/i, 'capital'],
+  
+  // Reserves
+  [/احتياطي|reserve|احتياطيات|احتياطي\s*قانوني/i, 'reserves'],
+  
+  // Retained earnings
+  [/أرباح مبقاة|أرباح مدورة|retained earnings|ارباح\s*محتجزة/i, 'retained'],
+  
+  // Dividends
+  [/توزيعات|dividends?|ارباح\s*موزعة|توزيع\s*ارباح/i, 'dividends'],
+  
+  // Revenue
+  [/مبيعات|إيرادات|revenue|sales|ايرادات\s*تشغيلية|مبيعات\s*سلع|ايراد\s*الخدمات|ايرادات\s*النشاط|دخل\s*تشغيلي/i, 'revenue'],
+  
+  // Other income
+  [/إيرادات أخرى|other income|ايرادات\s*غير\s*تشغيلية|ارباح\s*رأسمالية|دخل\s*استثماري/i, 'other_income'],
+  
+  // Cost of goods sold
+  [/تكلفة المبيعات|cost of (goods|sales)|cogs|تكلفة\s*البضاعة|تكلفة\s*الخدمات|مشتريات|مصاريف\s*مباشرة/i, 'cogs'],
+  
+  // Finance cost
+  [/تمويل|فوائد|فائدة|interest expense|finance cost|مصاريف\s*تمويلية|عمولات\s*قروض/i, 'finance_cost'],
+  
+  // Tax / Zakat
+  [/ضريبة|زكاة|tax|zakat|ضريبة\s*القيمة\s*المضافة|ضريبة\s*الدخل/i, 'tax'],
+  
+  // Other expenses
+  [/مصاريف أخرى|other expense|مصروفات\s*متفرقة|خسائر\s*تشغيلية|مصاريف\s*غير\s*مباشرة/i, 'other_expense'],
+  
+  // Selling, marketing, admin expenses
+  [/بيعي|تسويق|إداري|عمومي|selling|marketing|admin|general expense|مصاريف\s*بيعية|مصاريف\s*تسويقية|مصاريف\s*إدارية|مصاريف\s*عمومية|رواتب\s*موظفين|اجور\s*عاملين|مصروفات\s*مكتبية/i, 'sga'],
 ];
 
-function classifyAccount(name){
-  for(const [re, cat] of CLASSIFY_RULES){
-    if(re.test(name)) return cat;
+// ====== ENHANCED CLASSIFICATION FUNCTION ======
+function classifyAccount(name, debit = 0, credit = 0) {
+  if (!name || typeof name !== 'string') return '';
+  const trimmedName = name.trim();
+  
+  // First try: exact keyword matching with priority
+  let bestMatch = '';
+  let bestScore = 0;
+  
+  for (const [regex, category] of CLASSIFY_RULES) {
+    if (regex.test(trimmedName)) {
+      // Calculate match score based on length of matched text
+      const match = trimmedName.match(regex);
+      if (match) {
+        const score = match[0].length;
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = category;
+        }
+      }
+    }
   }
+  
+  if (bestMatch) return bestMatch;
+  
+  // Second try: fallback based on account nature (debit/credit)
+  // If account has credit balance only, it's likely revenue
+  if (credit > 0 && debit === 0) {
+    // Check if it might be a liability instead
+    const liabilityKeywords = /قرض|سلف|دائن|مورد|مستحق|مكافأة|ضريبة|زكاة/i;
+    if (liabilityKeywords.test(trimmedName)) {
+      // Try to find matching liability category
+      for (const [regex, category] of CLASSIFY_RULES) {
+        if (regex.test(trimmedName)) return category;
+      }
+      // Default to accounts payable if it looks like a liability
+      if (/مورد|دائن|مستحق|قرض|سلف/.test(trimmedName)) return 'ap';
+      if (/قرض|سلف|تمويل/.test(trimmedName)) {
+        if (/قصير|جاري/.test(trimmedName)) return 'st_loan';
+        return 'lt_loan';
+      }
+      if (/ضريبة|زكاة/.test(trimmedName)) return 'tax';
+      return 'other_cl';
+    }
+    // Otherwise it's likely revenue
+    return 'revenue';
+  }
+  
+  // If account has debit balance only, it's likely expense or asset
+  if (debit > 0 && credit === 0) {
+    // Check if it might be an asset instead
+    const assetKeywords = /أصول|مخزون|نقد|بنك|أراضي|مباني|آلات|معدات|سيارات|عملاء|مدين|مقدم/i;
+    if (assetKeywords.test(trimmedName)) {
+      for (const [regex, category] of CLASSIFY_RULES) {
+        if (regex.test(trimmedName)) return category;
+      }
+      // Default asset classification
+      if (/نقد|بنك|صندوق/.test(trimmedName)) return 'cash';
+      if (/عملاء|مدين/.test(trimmedName)) return 'ar';
+      if (/مخزون|بضاعة/.test(trimmedName)) return 'inventory';
+      if (/مقدم/.test(trimmedName)) return 'prepaid';
+      if (/أراضي|مباني|آلات|معدات|أثاث|سيارات/.test(trimmedName)) return 'ppe';
+      return 'other_ca';
+    }
+    // Otherwise it's likely an expense
+    const expenseKeywords = /مصاريف|مصروفات|إهلاك|استهلاك|تكلفة|بيعي|تسويق|إداري|عمومي|تمويل|فوائد|ضريبة|زكاة/i;
+    if (expenseKeywords.test(trimmedName)) {
+      for (const [regex, category] of CLASSIFY_RULES) {
+        if (regex.test(trimmedName)) return category;
+      }
+      if (/بيعي|تسويق|إداري|عمومي|رواتب|أجور/.test(trimmedName)) return 'sga';
+      if (/إهلاك|استهلاك/.test(trimmedName)) return 'depreciation';
+      if (/تمويل|فوائد/.test(trimmedName)) return 'finance_cost';
+      if (/ضريبة|زكاة/.test(trimmedName)) return 'tax';
+      if (/تكلفة/.test(trimmedName)) return 'cogs';
+      return 'other_expense';
+    }
+    return 'other_expense';
+  }
+  
+  // For accounts with both debit and credit, try harder with keyword matching
+  for (const [regex, category] of CLASSIFY_RULES) {
+    if (regex.test(trimmedName)) return category;
+  }
+  
+  // Final fallback based on keywords
+  if (/إيرادات|مبيعات|دخل/.test(trimmedName)) return 'revenue';
+  if (/مصاريف|مصروفات/.test(trimmedName)) return 'other_expense';
+  if (/أصول|مخزون|نقد|بنك/.test(trimmedName)) return 'other_ca';
+  if (/خصوم|التزامات|دائن|مورد|قرض/.test(trimmedName)) return 'other_cl';
+  if (/ملكية|رأس|احتياطي|أرباح/.test(trimmedName)) return 'capital';
+  
   return '';
 }
 
@@ -419,12 +553,16 @@ function sampleRows(){
 }
 
 function loadSample(){
-  rows = sampleRows().map(r => ({id: rowIdCounter++, name:r[0], debit:r[1], credit:r[2], cat:classifyAccount(r[0])}));
+  rows = sampleRows().map(r => ({id: rowIdCounter++, name:r[0], debit:r[1], credit:r[2], cat:classifyAccount(r[0], r[1], r[2])}));
   renderRows();
 }
 
 function autoClassifyAll(){
-  rows.forEach(r => { if(!r.cat && r.name) r.cat = classifyAccount(r.name); });
+  rows.forEach(r => { 
+    if (!r.cat && r.name) {
+      r.cat = classifyAccount(r.name, r.debit, r.credit);
+    }
+  });
   renderRows();
 }
 
@@ -459,7 +597,7 @@ function detectColumns(json){
       return {headerRowIdx: i, nameIdx, debitIdx, creditIdx};
     }
   }
-  // fallback: assume first row is header, columns بالترتيب اسم/مدين/دائن
+  // fallback: assume first row is header, columns in order name/debit/credit
   return {headerRowIdx: 0, nameIdx: 0, debitIdx: 1, creditIdx: 2};
 }
 
@@ -474,7 +612,8 @@ function handleWorkbookData(json){
     const debit = debitIdx > -1 ? parseNum(r[debitIdx]) : 0;
     const credit = creditIdx > -1 ? parseNum(r[creditIdx]) : 0;
     if(debit === 0 && credit === 0) return;
-    newRows.push({id: rowIdCounter++, name, debit, credit, cat: classifyAccount(name)});
+    const cat = classifyAccount(name, debit, credit);
+    newRows.push({id: rowIdCounter++, name, debit, credit, cat});
   });
 
   if(newRows.length === 0){
@@ -568,7 +707,7 @@ document.getElementById('tbBody').addEventListener('input', (e) => {
   if(field === 'name'){
     row.name = e.target.value;
     if(!row.cat){
-      const suggested = classifyAccount(row.name);
+      const suggested = classifyAccount(row.name, row.debit, row.credit);
       if(suggested){
         row.cat = suggested;
         const sel = e.target.closest('tr').querySelector('select[data-field="cat"]');
