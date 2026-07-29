@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مولد القوائم المالية — نظام تصنيف متطور</title>
+<title>مولد القوائم المالية — تصدير 7 شيتات Excel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -29,8 +29,7 @@
   body{
     margin:0;
     background:var(--paper);
-    background-image:
-      repeating-linear-gradient(var(--paper) 0px, var(--paper) 34px, var(--paper-line) 35px);
+    background-image:repeating-linear-gradient(var(--paper) 0px, var(--paper) 34px, var(--paper-line) 35px);
     font-family:'Tajawal', sans-serif;
     color:var(--ink);
   }
@@ -403,138 +402,95 @@ const DEBIT_NATURE = new Set([
   'cogs','sga','depreciation','finance_cost','tax','other_expense','dividends'
 ]);
 
-// ====== نظام تصنيف متطور ======
+// ====== نظام تصنيف متطور متوافق مع ميزان المراجعة الفعلي ======
 const CLASSIFY_RULES = [
-  // ---- الأصول المتداولة ----
-  { regex: /\b(?:نقد|نقدية|cash|صندوق|بنك|bank|شيكات|حساب جاري|petty\s*cash|عهد\s*نقدية)\b/i, category: 'cash', priority: 95 },
-  { regex: /\b(?:مدينون\s*تجاريون|accounts\s*receivables|عملاء|حسابات مدينة|ذمم مدينة|debtors|receivable)\b(?!.*(?:staff|موظفين|related|اطراف))/i, category: 'ar', priority: 95 },
-  { regex: /\b(?:حسابات\s*مدينة\s*أخرى|other\s*debit\s*balance)\b/i, category: 'other_ca', priority: 90 },
-  { regex: /\b(?:دفعات\s*مقدمة|advance\s*payments|سلف|موردين\s*مدين|prepaid\s*to\s*suppliers)\b(?!.*(?:expenses|مصروفات))/i, category: 'prepaid_to_supplier', priority: 90 },
-  { regex: /\b(?:مخزون|inventories|stock|بضاعة|goods\s*in\s*transit|اعتمادات|طلبيات|بضاعة\s*بالطريق)\b/i, category: 'inventory', priority: 90 },
-  { regex: /\b(?:مصروفات\s*مدفوعة\s*مقدما|prepaid\s*expenses|تأمينات\s*مستردة|refundable\s*deposit)\b/i, category: 'prepaid', priority: 85 },
-  { regex: /\b(?:مستحق\s*من\s*اطراف\s*ذات\s*صلة|due\s*from\s*related\s*parties)\b/i, category: 'ar', priority: 85 },
-  { regex: /\b(?:ودائع\s*ثابتة\s*[\(]?اقل\s*من\s*سنة|short-term\s*cash\s*investments|استثمارات\s*تداول|investment\s*trading)\b/i, category: 'other_ca', priority: 80 },
-  { regex: /\b(?:ذمم\s*موظفين|staff\s*receivables|موظفين\s*مدينون)\b/i, category: 'other_ca', priority: 80 },
+  // ---- البنوك والنقد (Cash) ----
+  { regex: /\b(?:KFH|Warba|Nbk|Bank|VISA|CARD|كاش|نقد|صندوق|cash|bank|card)\b/i, category: 'cash', priority: 95 },
+  { regex: /^11120[0-9]|^11121[0-9]/, category: 'cash', priority: 90 },
   
-  // ---- الأصول غير المتداولة ----
-  { regex: /\b(?:الممتلكات\s*والمعدات\s*الثابتة|property,\s*plant\s*and\s*equipment|أصول\s*ثابتة|مباني|آلات|معدات|سيارات|أثاث|land|building|machinery|equipment|furniture|vehicle|pp&e)\b(?!.*(?:ملموسة|غير\s*ملموسة|intangible))/i, category: 'ppe', priority: 90 },
-  { regex: /\b(?:مجمع\s*الاستهلاك|accumulated\s*depreciation|اهلاك\s*متراكم|استهلاك\s*متراكم)\b(?!.*(?:اطفاءات|amortization))/i, category: 'accum_dep', priority: 90 },
-  { regex: /\b(?:الاصول\s*الثابتة\s*الغير\s*ملموسة|intangible\s*fixed\s*assets|شهرة|براءة|علامة\s*تجارية|goodwill|patent|trademark)\b/i, category: 'intangible', priority: 85 },
-  { regex: /\b(?:مجمع\s*الاطفاءات|accumulated\s*amortization|اطفاء\s*متراكم|amortization\s*accumulated)\b/i, category: 'accum_dep', priority: 85 },
-  { regex: /\b(?:ودائع\s*ثابتة\s*[\(]?اكثر\s*من\s*سنة|long-term\s*cash\s*investments)\b/i, category: 'other_nca', priority: 80 },
+  // ---- العملاء - حسابات مدينة (AR) ----
+  { regex: /\bTR\s*[-–—]\s*|^11210[0-9]/, category: 'ar', priority: 95 },
+  { regex: /\b(?:ACTIVTRADES|MULTILP|UPayments|SADAD|receivable|مدينون|عملاء)\b/i, category: 'ar', priority: 90 },
+  { regex: /^112101|^112102|^112103|^112104/, category: 'ar', priority: 95 },
   
-  // ---- الالتزامات المتداولة ----
-  { regex: /\b(?:دائنون\s*تجاريون|accounts\s*payable|موردون|حسابات\s*دائنة|ذمم\s*دائنة|payables|creditors)\b(?!.*(?:أخرى|other|مستحقة|accrued))/i, category: 'ap', priority: 95 },
-  { regex: /\b(?:حسابات\s*دائنة\s*أخرى|other\s*credit\s*balance)\b/i, category: 'other_cl', priority: 90 },
-  { regex: /\b(?:مصروفات\s*مستحقة|accrued\s*expenses|مستحقات|accruals|مخصص\s*بدل\s*إجازة|leave\s*provision)\b/i, category: 'accrued', priority: 90 },
-  { regex: /\b(?:ايرادات\s*مدفوعة\s*مقدما|unearned\s*revenue|إيرادات\s*مقدمة)\b/i, category: 'other_cl', priority: 85 },
-  { regex: /\b(?:قروض\s*و\s*المستحق\s*من\s*القروض\s*طويلة\s*الأجل|loans\s*payable\s*and\s*current\s*portion\s*long-term\s*debt|قروض\s*قصيرة|short\s*term\s*loans)\b/i, category: 'st_loan', priority: 85 },
+  // ---- الموردون - حسابات دائنة (AP) ----
+  { regex: /\bTP\s*[-–—]\s*|^21110[0-9]|^21111[0-9]|^21112[0-9]|^21113[0-9]/, category: 'ap', priority: 95 },
+  { regex: /\b(?:supplier|vendor|مورد|دائن|payable)\b/i, category: 'ap', priority: 90 },
   
-  // ---- الالتزامات طويلة الأجل ----
-  { regex: /\b(?:قروض\s*طويلة\s*الاجل|long-term\s*debt|قروض\s*طويلة|long\s*term\s*loans)\b(?!.*(?:المستحق|current\s*portion|قصيرة))/i, category: 'lt_loan', priority: 90 },
-  { regex: /\b(?:تكلفة\s*تمويلية\s*مؤجلة|deferred\s*finance\s*cost)\b/i, category: 'other_ncl', priority: 80 },
-  { regex: /\b(?:مخصص\s*مكافأة\s*نهاية\s*الخدمة|indemnity\s*provision|مكافأة\s*نهاية\s*الخدمة|end\s*of\s*service\s*benefits|gratuity)\b/i, category: 'eosb', priority: 90 },
+  // ---- المصروفات المدفوعة مقدماً (Prepaid) ----
+  { regex: /\b(?:Prepaid\s*Expenses|Prepaid\s*Expenses-|مصروفات\s*مدفوعة\s*مقدما|Prepaid\s+Expenses?)\b/i, category: 'prepaid', priority: 95 },
+  { regex: /^11240[0-9]/, category: 'prepaid', priority: 90 },
   
-  // ---- حقوق الملكية ----
-  { regex: /\b(?:رأس\s*المال|share\s*capital|رأس\s*مال)\b/i, category: 'capital', priority: 95 },
-  { regex: /\b(?:احتياطي\s*قانوني|statutory\s*reserve|احتياطي\s*أختياري|voluntary\s*reserve|احتياطيات|reserves)\b/i, category: 'reserves', priority: 90 },
-  { regex: /\b(?:جاري\s*الشركاء|partners\s*current\s*account|شركاء\s*جاري|شريك\s*جاري|current\s*account\s*[-–—]\s*partners)\b/i, category: 'partner_current', priority: 95 },
-  { regex: /\b(?:ارباح\s*محتفظ\s*بها|retained\s*earnings|أرباح\s*مبقاة|accumulated\s*losses|خسائر\s*متراكمة)\b(?!.*(?:فترة|period|الربح|profit))/i, category: 'retained', priority: 90 },
-  { regex: /\b(?:الربح\s*[\(]?\/\s*[\)]?\s*الخسارة\s*خلال\s*الفترة|profit\s*[\(\/]\s*loss\s*for\s*period|صافي\s*الربح|net\s*profit|صافي\s*الخسارة)\b(?!.*(?:محتفظ|retained|مبقاة))/i, category: 'retained', priority: 85 },
+  // ---- المخزون (Inventory) ----
+  { regex: /\b(?:Inventory|inventory|مخزون|raw material|بضاعة|stock)\b/i, category: 'inventory', priority: 90 },
+  { regex: /^11510[0-9]/, category: 'inventory', priority: 85 },
+  
+  // ---- الأصول المتداولة الأخرى ----
+  { regex: /\b(?:Refundable Deposits|تأمينات مستردة|investment\s*[-–—]\s*treading|استثمارات|Due from|مستحق\s*من)\b/i, category: 'other_ca', priority: 80 },
+  { regex: /^112001|^115103|^115113/, category: 'other_ca', priority: 85 },
+  
+  // ---- الأصول الثابتة (PPE) ----
+  { regex: /\bFA\s*[-–—]\s*Historical Cost|^12110[0-9]|^12110[0-9]/, category: 'ppe', priority: 95 },
+  { regex: /\b(?:Furniture|Fixtures|Computer Equipment|Decoration|fixed assets|أصول ثابتة|مباني|آلات|معدات)\b/i, category: 'ppe', priority: 90 },
+  
+  // ---- مجمع الإهلاك (Accumulated Depreciation) ----
+  { regex: /\bFA\s*[-–—]\s*Accumulated Depreciation|^12130[0-9]|^12130[0-9]/, category: 'accum_dep', priority: 95 },
+  { regex: /\b(?:Accumulated Depreciation|Accumulated Amortization|مجمع\s*الاستهلاك|مجمع\s*الاطفاءات)\b/i, category: 'accum_dep', priority: 90 },
+  
+  // ---- الأصول غير الملموسة ----
+  { regex: /\b(?:Trade Mark|Website|online|براءة|شهرة|علامة تجارية|intangible)\b/i, category: 'intangible', priority: 80 },
+  
+  // ---- المصروفات المستحقة (Accrued Expenses) ----
+  { regex: /\bAccrued Expenses|^21120[0-9]/, category: 'accrued', priority: 95 },
+  { regex: /\b(?:Salaries|internet|Electricity|مستحقات|رواتب مستحقة|مصروفات مستحقة)\b/i, category: 'accrued', priority: 85 },
+  
+  // ---- رأس المال ----
+  { regex: /\bCapital\s*[-–—]\s*|^31110[0-9]/, category: 'capital', priority: 95 },
+  { regex: /\b(?:Capital|رأس المال|رأس مال)\b/i, category: 'capital', priority: 90 },
+  
+  // ---- حساب الشريك الجاري ----
+  { regex: /\bPartner Current Account|^31210[0-9]/, category: 'partner_current', priority: 95 },
+  { regex: /\b(?:Partner current|شريك جاري|شركاء جاري)\b/i, category: 'partner_current', priority: 90 },
+  
+  // ---- الأرباح المبقاة ----
+  { regex: /\bRetained Earnings|^319101/, category: 'retained', priority: 95 },
+  { regex: /\b(?:Retained Earnings|ارباح محتفظ بها|أرباح مبقاة)\b/i, category: 'retained', priority: 90 },
   
   // ---- الإيرادات ----
-  { regex: /\b(?:ايرادات\s*عمولات\s*التداول|trading\s*commission\s*revenue|ايرادات\s*الدورات\s*التدريبية|training\s*courses\s*revenue|ايرادات\s*بيع|sales\s*of|خدمة\s*التوصيل|delivery\s*fees|مبيعات\s*وجبات|staff\s*meals|ايرادات\s*وعمولات|discount\s*received|خصم\s*مكتسب|ارباح\s*بيع\s*اصول|gain\s*from\s*fixed\s*assets|ايرادات\s*أخرى|other\s*revenues|المبيعات|sales|مردودات|sales\s*refund)\b(?!.*(?:COGS|تكلفة|cost|مصروفات|expenses))/i, category: 'revenue', priority: 85 },
-  { regex: /\b(?:ايرادات\s*أخرى\s*[-–—]\s*شركة\s*اكتيف|other\s*income\s*[-–—]\s*active\s*trade|إيرادات\s*أخرى|other\s*income)\b(?!.*(?:revenues|مبيعات|sales|تكلفة|cost|مصروفات|expenses))/i, category: 'other_income', priority: 80 },
+  { regex: /\b(?:training courses Revenue|Trading commission Revnue|Sales Refund|Revenue|مبيعات|إيرادات|ايرادات)\b(?!.*(?:cost|تكلفة|expense|مصروف))/i, category: 'revenue', priority: 85 },
+  { regex: /^41110[0-9]|^41110[0-9]/, category: 'revenue', priority: 85 },
   
-  // ---- تكلفة البضاعة المباعة ----
-  { regex: /\b(?:تكاليف\s*عمولات\s*المدربين|cost\s*of\s*sales\s*[-–—]\s*trainers\s*commissions|تكاليف\s*العاملين|cost\s*of\s*sales\s*[-–—]\s*labors|تكاليف\s*الاشتراكات|cost\s*of\s*sales\s*[-–—]\s*subscriptions|تكلفة\s*البضاعة\s*المباعة|delivery\s*charges|deliveroo|غاز|finished\s*goods|bags|upayments\s*commission|مواد\s*تعبئة\s*وتغليف|packing\s*material|خصومات|discounts|مواد\s*استهلاكية|consumables|مصروفات\s*توصيل|delivery|حفلات\s*خارجية|events\s*expenses|عمولات\s*مواقع\s*الكترونية|app\s*commissions|تكلفة\s*المبيعات|cogs|cost\s*of\s*goods\s*sold)\b(?!.*(?:مصروفات|expenses|إيرادات|revenues))/i, category: 'cogs', priority: 85 },
+  // ---- تكلفة المبيعات (COGS) ----
+  { regex: /\bOE\s*[-–—]\s*Cost of Sales|^51110[0-9]/, category: 'cogs', priority: 95 },
+  { regex: /\b(?:Cost of Sales|تكلفة المبيعات|Trainers Commissions|Labors|Subscriptions|Sadad commission)\b(?!.*(?:G&A|Staff|Professional|Marketing|Rent|Electricity|Cleaning|Hospitality|Stationery|License|Maintenance|Printings|Bank|Travelling|Telephone|Internet|zakat|Depreciation|Amortization))/i, category: 'cogs', priority: 85 },
   
-  // ---- المصروفات ----
-  { regex: /\b(?:مصروفات\s*الموظفين|staff\s*expenses|رواتب|أجور|تعويضات|موظفين)\b(?!.*(?:مستحقة|accrued))/i, category: 'sga', priority: 80 },
-  { regex: /\b(?:مصروفات\s*بيعية\s*وتسويقية|selling\s*&\s*markting\s*expenses|إعلانات|تسويق|بيعية)\b/i, category: 'sga', priority: 80 },
-  { regex: /\b(?:مصروفات\s*اتعاب\s*خدمات\s*مهنية|professional\s*services\s*fees|استشارات|محاماة|مراجعة|تدقيق)\b/i, category: 'sga', priority: 80 },
-  { regex: /\b(?:مصروفات\s*الإيجار|rent\s*expenses|ايجار|إيجار|مكتب|مقر)\b/i, category: 'sga', priority: 80 },
-  { regex: /\b(?:مصروفات\s*عمومية\s*وادارية\s*أخرى|other\s*g&a\s*expenses|مصاريف\s*إدارية|مصاريف\s*عمومية|قرطاسية|اتصالات|كهرباء|ماء|صيانة|تأمين)\b(?!.*(?:تأسيس|establishment))/i, category: 'sga', priority: 75 },
-  { regex: /\b(?:الاستهلاكات|depreciation\s*expenses|اهلاك|استهلاك|إهلاك)\b(?!.*(?:مجمع|متراكم|accumulated))/i, category: 'depreciation', priority: 85 },
-  { regex: /\b(?:الاطفاءات|amortization\s*expenses|اطفاء|استهلاك\s*الاصول\s*غير\s*الملموسة)\b(?!.*(?:مجمع|متراكم|accumulated))/i, category: 'depreciation', priority: 80 },
-  { regex: /\b(?:الزكاة|zakat\s*expenses|زكاة|ضريبة|tax)\b/i, category: 'tax', priority: 85 },
-  { regex: /\b(?:مصروفات\s*تمويلية|finance\s*cost|فوائد|interest\s*expense|تكاليف\s*تمويل|عمولات\s*بنكية|bank\s*charges)\b/i, category: 'finance_cost', priority: 85 },
-  { regex: /\b(?:مصروفات\s*تأسيس|establishment\s*expenses|تأسيس|تراخيص)\b/i, category: 'other_expense', priority: 75 },
-  { regex: /\b(?:ربح\s*او\s*خسارة\s*فروق\s*اسعار\s*العملات|gain\/loss\s*from\s*currency\s*exchange|فروق\s*عملات|currency\s*difference)\b/i, category: 'other_expense', priority: 70 },
-  { regex: /\b(?:مصروفات\s*أخرى|other\s*expenses|مصاريف\s*متفرقة|miscellaneous)\b(?!.*(?:تمويل|إهلاك|ضريبة|بيعية|إدارية|تكلفة))/i, category: 'other_expense', priority: 70 },
+  // ---- المصروفات العمومية والإدارية (G&A) ----
+  { regex: /\bG&A\s*[-–—]\s*|^52110[0-9]|^52120[0-9]|^52130[0-9]|^52140[0-9]/, category: 'sga', priority: 95 },
+  { regex: /\b(?:Staff Costs|Salaries|Overtime|Residency|Health Insurance|Air Tickets|Social Security|Professional Services|Audit|Accounting Fees|Legal Consultancy|human resources|Marketing Expenses|Advertisement|Shop Rent|Electricity|Water|Cleaning|Hospitality|Stationery|License|Government Fees|Store Maintenance|Printings|Bank Charges|Travelling|Telephone|Mobile|Internet)\b/i, category: 'sga', priority: 85 },
+  
+  // ---- مصروفات الزكاة ----
+  { regex: /\bzakat expense|^521511/, category: 'tax', priority: 90 },
+  { regex: /\b(?:zakat|زكاة|ضريبة|tax)\b/i, category: 'tax', priority: 80 },
+  
+  // ---- مصروفات الإهلاك ----
+  { regex: /\bDepreciation Expense|Amortization Expense|^52310[0-9]/, category: 'depreciation', priority: 95 },
+  { regex: /\b(?:Depreciation|Amortization|استهلاك|إهلاك|اطفاء)\b(?!.*(?:Accumulated|مجمع|متراكم))/i, category: 'depreciation', priority: 85 },
+  
+  // ---- حسابات غير مصنفة افتراضياً ----
+  { regex: /^99999|Undistrubited/, category: 'retained', priority: 50 },
 ];
-
-const KEYWORD_MAP = {
-  'نقد': 'cash', 'نقدية': 'cash', 'صندوق': 'cash', 'بنك': 'cash', 'bank': 'cash', 'cash': 'cash',
-  'عهد نقدية': 'cash', 'petty cash': 'cash',
-  'مدينون تجاريون': 'ar', 'accounts receivables': 'ar', 'عملاء': 'ar', 'حسابات مدينة': 'ar',
-  'ذمم مدينة': 'ar', 'debtors': 'ar', 'receivable': 'ar',
-  'مستحق من اطراف ذات صلة': 'ar', 'due from related parties': 'ar',
-  'دائنون تجاريون': 'ap', 'accounts payable': 'ap', 'موردون': 'ap', 'حسابات دائنة': 'ap',
-  'ذمم دائنة': 'ap', 'payables': 'ap', 'creditors': 'ap',
-  'مخزون': 'inventory', 'inventories': 'inventory', 'stock': 'inventory', 'بضاعة': 'inventory',
-  'goods in transit': 'inventory', 'اعتمادات وطلبيات': 'inventory',
-  'مصروفات مدفوعة مقدما': 'prepaid', 'prepaid expenses': 'prepaid',
-  'تأمينات مستردة': 'prepaid', 'refundable deposit': 'prepaid',
-  'دفعات مقدمة': 'prepaid_to_supplier', 'advance payments': 'prepaid_to_supplier',
-  'موردين مدين': 'prepaid_to_supplier',
-  'ممتلكات ومعدات ثابتة': 'ppe', 'property plant and equipment': 'ppe',
-  'أصول ثابتة': 'ppe', 'مباني': 'ppe', 'آلات': 'ppe', 'معدات': 'ppe', 'سيارات': 'ppe',
-  'مجمع الاستهلاك': 'accum_dep', 'accumulated depreciation': 'accum_dep',
-  'اهلاك متراكم': 'accum_dep', 'استهلاك متراكم': 'accum_dep',
-  'مجمع الاطفاءات': 'accum_dep', 'accumulated amortization': 'accum_dep',
-  'اصول ثابتة غير ملموسة': 'intangible', 'intangible fixed assets': 'intangible',
-  'قروض قصيرة الاجل': 'st_loan', 'قروض و المستحق من القروض طويلة الأجل': 'st_loan',
-  'loans payable and current portion': 'st_loan',
-  'قروض طويلة الاجل': 'lt_loan', 'long-term debt': 'lt_loan',
-  'مصروفات مستحقة': 'accrued', 'accrued expenses': 'accrued',
-  'مخصص بدل إجازة': 'accrued', 'leave provision': 'accrued',
-  'مبيعات': 'revenue', 'sales': 'revenue', 'ايرادات': 'revenue', 'revenue': 'revenue',
-  'عمولات التداول': 'revenue', 'trading commission': 'revenue',
-  'ايرادات الدورات التدريبية': 'revenue', 'training courses': 'revenue',
-  'خدمة التوصيل': 'revenue', 'delivery fees': 'revenue',
-  'مبيعات وجبات': 'revenue', 'staff meals': 'revenue',
-  'ايرادات اخرى': 'revenue', 'other revenues': 'revenue',
-  'ايرادات وعمولات': 'revenue',
-  'ايرادات أخرى - شركة اكتيف تريد': 'other_income',
-  'تكلفة المبيعات': 'cogs', 'cost of sales': 'cogs', 'cogs': 'cogs',
-  'تكاليف عمولات المدربين': 'cogs', 'trainers commissions': 'cogs',
-  'تكاليف العاملين': 'cogs', 'تكاليف الاشتراكات': 'cogs',
-  'تكلفة البضاعة المباعة': 'cogs', 'مواد تعبئة وتغليف': 'cogs',
-  'خصومات': 'cogs', 'discounts': 'cogs',
-  'مواد استهلاكية': 'cogs', 'consumables': 'cogs',
-  'مصروفات الموظفين': 'sga', 'staff expenses': 'sga',
-  'مصروفات بيعية وتسويقية': 'sga', 'selling & marketing': 'sga',
-  'اتعاب خدمات مهنية': 'sga', 'professional services': 'sga',
-  'مصروفات الإيجار': 'sga', 'rent expenses': 'sga',
-  'مصروفات عمومية وادارية': 'sga', 'g&a expenses': 'sga',
-  'الاستهلاكات': 'depreciation', 'depreciation expenses': 'depreciation',
-  'الاطفاءات': 'depreciation', 'amortization expenses': 'depreciation',
-  'الزكاة': 'tax', 'zakat': 'tax', 'ضريبة': 'tax',
-  'مصروفات تمويلية': 'finance_cost', 'finance cost': 'finance_cost',
-  'مصروفات تأسيس': 'other_expense', 'establishment expenses': 'other_expense',
-  'فروق اسعار العملات': 'other_expense', 'currency exchange': 'other_expense',
-  'رأس المال': 'capital', 'share capital': 'capital',
-  'جاري الشركاء': 'partner_current', 'partners current account': 'partner_current',
-  'احتياطي قانوني': 'reserves', 'statutory reserve': 'reserves',
-  'احتياطي اختياري': 'reserves', 'voluntary reserve': 'reserves',
-  'ارباح محتفظ بها': 'retained', 'retained earnings': 'retained',
-  'خسائر متراكمة': 'retained', 'accumulated losses': 'retained',
-  'الربح خلال الفترة': 'retained', 'profit for period': 'retained',
-};
 
 function classifyAccount(name, debit = 0, credit = 0) {
   if (!name || typeof name !== 'string') return '';
   const trimmedName = name.trim();
-  const lowerName = trimmedName.toLowerCase();
   
   let bestMatch = '';
   let bestScore = 0;
   
   for (const rule of CLASSIFY_RULES) {
-    const match = trimmedName.match(rule.regex);
-    if (match) {
-      const score = rule.priority + (match[0].length / 100);
+    if (rule.regex.test(trimmedName)) {
+      const match = trimmedName.match(rule.regex);
+      const score = rule.priority + (match ? match[0].length / 100 : 0);
       if (score > bestScore) {
         bestScore = score;
         bestMatch = rule.category;
@@ -552,68 +508,38 @@ function classifyAccount(name, debit = 0, credit = 0) {
   
   if (bestMatch) return bestMatch;
   
-  for (const [keyword, category] of Object.entries(KEYWORD_MAP)) {
-    if (lowerName.includes(keyword.toLowerCase())) {
-      return category;
-    }
-  }
-  
+  // Fallback: تحليل الرصيد
   if (credit > 0 && debit === 0) {
-    if (/رأس\s*المال|capital|شريك|partner|احتياطي|reserve|أرباح|retained|توزيع|dividend|جاري|current/i.test(trimmedName)) {
-      if (/شريك|partner|جاري|current/i.test(trimmedName)) return 'partner_current';
-      if (/رأس\s*المال|capital/i.test(trimmedName)) return 'capital';
-      if (/احتياطي|reserve/i.test(trimmedName)) return 'reserves';
-      if (/أرباح|retained|محتفظ|خسائر/i.test(trimmedName)) return 'retained';
-      if (/توزيع|dividend/i.test(trimmedName)) return 'dividends';
+    if (/Capital|رأس|Partner|Retained|احتياطي|reserve|ارباح|شريك/i.test(trimmedName)) {
+      if (/Partner|شريك|جاري/i.test(trimmedName)) return 'partner_current';
+      if (/Capital|رأس/i.test(trimmedName)) return 'capital';
+      if (/Retained|ارباح|مبقاة/i.test(trimmedName)) return 'retained';
+      return 'reserves';
     }
-    if (/قرض|loan|دائن|مورد|مستحق|مكافأة|ضريبة|زكاة|payable|liability|مخصص|التزام/i.test(trimmedName)) {
-      if (/قرض|loan/i.test(trimmedName)) {
-        if (/قصير|short|current/i.test(trimmedName)) return 'st_loan';
-        return 'lt_loan';
-      }
-      if (/دائن|مورد|supplier|payable/i.test(trimmedName)) return 'ap';
-      if (/مستحق|accrued|مكافأة|بدل\s*إجازة|leave/i.test(trimmedName)) return 'accrued';
-      if (/ضريبة|زكاة|tax|zakat/i.test(trimmedName)) return 'tax';
-      return 'other_cl';
+    if (/TP|Accrued|Salaries|internet|Electricity|مورد|مستحق/i.test(trimmedName)) {
+      if (/TP|مورد|payable|supplier/i.test(trimmedName)) return 'ap';
+      if (/Accrued|مستحق|Salaries/i.test(trimmedName)) return 'accrued';
     }
-    if (/مبيعات|ايرادات|revenue|sales|income|عمولات|دورات|خدمة/i.test(trimmedName)) {
+    if (/Revenue|training|Trading|commission|ايرادات|مبيعات/i.test(trimmedName)) {
       return 'revenue';
     }
-    return 'revenue';
+    return 'ap';
   }
   
   if (debit > 0 && credit === 0) {
-    if (/أصول|asset|مخزون|نقد|بنك|مباني|آلات|معدات|سيارات|عملاء|مقدم|inventory|cash|bank|building|equipment|receivable|prepaid|ذمم|موظفين|ودائع/i.test(trimmedName)) {
-      if (/نقد|cash|بنك|bank|صندوق|petty|عهد/i.test(trimmedName)) return 'cash';
-      if (/عملاء|مدين|receivable|debtor|customer|اطراف|staff|موظفين/i.test(trimmedName)) return 'ar';
-      if (/مخزون|inventory|stock|بضاعة|اعتمادات|طلبيات/i.test(trimmedName)) return 'inventory';
-      if (/مقدم|prepaid|تأمينات|deposit/i.test(trimmedName)) return 'prepaid';
-      if (/موردين|دفعات/i.test(trimmedName)) return 'prepaid_to_supplier';
-      if (/مباني|آلات|معدات|سيارات|أثاث|building|equipment|vehicle|furniture|ممتلكات/i.test(trimmedName)) return 'ppe';
-      if (/غير\s*ملموسة|intangible/i.test(trimmedName)) return 'intangible';
-      return 'other_ca';
-    }
-    if (/مصاريف|مصروفات|تكلفة|expense|cost|إهلاك|فوائد|ضريبة|زكاة|رواتب|إيجار|عمولات|استهلاك|اطفاء|تمويل|تأسيس|فروق/i.test(trimmedName)) {
-      if (/تكلفة|cost of|المبيعات|البضاعة|عمولات\s*المدربين|delivery|deliveroo|غاز|bags|upayments|تعبئة|مواد\s*استهلاكية|خصومات|discounts|حفلات/i.test(trimmedName)) return 'cogs';
-      if (/إهلاك|depreciation|استهلاك|اطفاء|amortization/i.test(trimmedName)) return 'depreciation';
-      if (/فوائد|interest|تمويل|finance/i.test(trimmedName)) return 'finance_cost';
-      if (/ضريبة|زكاة|tax|zakat/i.test(trimmedName)) return 'tax';
-      if (/بيعي|تسويق|إداري|عمومي|sga|selling|marketing|admin|general|رواتب|إيجار|اتعاب|خدمات\s*مهنية|موظفين|staff|rent|professional/i.test(trimmedName)) return 'sga';
-      if (/تأسيس|establishment|فروق|currency|exchange/i.test(trimmedName)) return 'other_expense';
+    if (/TR|Receivable|مدين|عملاء|Staff|Due|Prepaid|Inventory|FA|Historical|Furniture|Computer|Decoration|Trade Mark|Website|Depreciation|Amortization|OE|Cost|G&A|Staff|Professional|Marketing|Rent|Electricity|Cleaning|Hospitality|Stationery|License|Maintenance|Printings|Bank|Travelling|Telephone|Internet|zakat|Expense|مصاريف|مصروفات|أصول|ثابتة|مخزون|نقد/i.test(trimmedName)) {
+      if (/TR|Receivable|مدين|عملاء|Due|Staff/i.test(trimmedName)) return 'ar';
+      if (/Prepaid|مقدم/i.test(trimmedName)) return 'prepaid';
+      if (/Inventory|مخزون|raw/i.test(trimmedName)) return 'inventory';
+      if (/FA|Historical|Furniture|Computer|Decoration|Trade Mark|Website|أصول ثابتة/i.test(trimmedName)) return 'ppe';
+      if (/Depreciation|Amortization|استهلاك|إهلاك|اطفاء/i.test(trimmedName)) return 'depreciation';
+      if (/OE|Cost of Sales|تكلفة/i.test(trimmedName)) return 'cogs';
+      if (/G&A|Staff|Professional|Marketing|Rent|Electricity|Cleaning|Hospitality|Stationery|License|Maintenance|Printings|Bank|Travelling|Telephone|Internet|zakat/i.test(trimmedName)) return 'sga';
+      if (/zakat|ضريبة/i.test(trimmedName)) return 'tax';
       return 'other_expense';
-    }
-    if (/[A-Z]{2,}|[a-z]{4,}|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|trainers|company|multilp|activetrades/i.test(trimmedName)) {
-      return 'ar';
     }
     return 'other_expense';
   }
-  
-  if (/مبيعات|revenue|sales|إيرادات|income|عمولات|دورات|خدمة|delivery|training/i.test(trimmedName)) return 'revenue';
-  if (/مصاريف|expense|تكلفة|cost|إهلاك|فوائد|ضريبة|زكاة|رواتب|إيجار|عمولات|استهلاك|اطفاء|تمويل|تأسيس|فروق/i.test(trimmedName)) return 'other_expense';
-  if (/رأس\s*المال|capital/i.test(trimmedName)) return 'capital';
-  if (/شريك|partner|جاري|current/i.test(trimmedName)) return 'partner_current';
-  if (/عملاء|مدين|receivable|customer|اطراف|staff|موظفين/i.test(trimmedName)) return 'ar';
-  if (/مورد|دائن|payable|supplier/i.test(trimmedName)) return 'ap';
   
   return '';
 }
@@ -634,28 +560,29 @@ function categorySelectHTML(rowId, selected){
 
 function sampleRows(){
   return [
-    ["النقد والنقد المعادل", 150, 0],
-    ["مدينون تجاريون", 220, 0],
-    ["دفعات مقدمة", 30, 0],
-    ["المخزون", 300, 0],
-    ["مصروفات مدفوعة مقدما", 20, 0],
-    ["الممتلكات والمعدات الثابتة بالتكلفة التاريخية", 710, 0],
-    ["مجمع الاستهلاك", 0, 80],
-    ["دائنون تجاريون", 0, 180],
-    ["قروض قصيرة الاجل", 0, 100],
-    ["مصروفات مستحقة", 0, 30],
-    ["قروض طويلة الاجل", 0, 250],
-    ["مخصص مكافأة نهاية الخدمة", 0, 60],
-    ["رأس المال", 0, 600],
-    ["ارباح محتفظ بها", 0, 150],
-    ["ايرادات عمولات التداول - MULTILP", 0, 400],
-    ["ايرادات الدورات التدريبية", 0, 800],
-    ["تكلفة المبيعات", 750, 0],
-    ["مصروفات بيعية وتسويقية", 90, 0],
-    ["مصروفات عمومية وادارية", 110, 0],
-    ["الاستهلاكات", 60, 0],
-    ["ايرادات اخرى", 0, 10],
-    ["مصروفات تمويلية", 20, 0]
+    ["KFH Bank", 150, 0],
+    ["Warba Bank", 39301, 0],
+    ["NBK Bank", 5864, 0],
+    ["TR - ACTIVTRADES CORP", 15252, 0],
+    ["TR - MULTILP COMPANY", 0, 0],
+    ["Refundable Deposits", 250, 0],
+    ["Inventory - raw material", 455, 0],
+    ["Prepaid Expenses - Rent", 0, 0],
+    ["FA - Furniture & Fixtures", 6528, 0],
+    ["FA - Accumulated Depreciation - Furniture", 0, 3170],
+    ["TP - Suppliers", 0, 717],
+    ["Accrued Expenses - Salaries", 0, 433],
+    ["Capital - Ahmed", 0, 330],
+    ["Partner Current Account - Ahmed", 0, 4740],
+    ["Retained Earnings", 0, 41612],
+    ["training courses Revenue", 0, 18298],
+    ["Trading commission Revenue - ACTIVTRADES", 0, 64255],
+    ["OE - Cost of Sales - Trainers Commissions", 9778, 0],
+    ["G&A - Staff Costs - Salaries", 15688, 0],
+    ["G&A - Marketing Expenses - Advertisement", 9217, 0],
+    ["Other G&A Expenses - Shop Rent", 12825, 0],
+    ["Other G&A Expenses - zakat expense", 1119, 0],
+    ["Depreciation Expense - Furniture", 649, 0]
   ];
 }
 
@@ -691,10 +618,10 @@ function parseNum(v){
 }
 
 function detectColumns(json){
-  const nameRe = /account|acct|حساب|اسم|بيان|description|name|الباب|البيان|رقم|الحساب/i;
-  const debitRe = /debit|^dr$|مدين|مدينة|debtor/i;
-  const creditRe = /credit|^cr$|دائن|دائنة|creditor/i;
-  const maxScan = Math.min(20, json.length);
+  const nameRe = /account|acct|حساب|اسم|بيان|description|name|الباب|البيان|رقم|الحساب|Account Name|Account/i;
+  const debitRe = /debit|^dr$|مدين|مدينة|debtor|Debit/i;
+  const creditRe = /credit|^cr$|دائن|دائنة|creditor|Credit/i;
+  const maxScan = Math.min(30, json.length);
   
   for(let i = 0; i < maxScan; i++){
     const row = (json[i] || []).map(c => String(c ?? '').trim());
@@ -706,25 +633,34 @@ function detectColumns(json){
     }
   }
   
+  // البحث عن أعمدة الرصيد النهائي (End Balance)
   for(let i = 0; i < maxScan; i++){
-    const row = (json[i] || []).filter(c => String(c ?? '').trim() !== '');
-    if(row.length >= 3){
-      return {headerRowIdx: i, nameIdx: 0, debitIdx: 1, creditIdx: 2};
+    const row = (json[i] || []).map(c => String(c ?? '').trim());
+    const hasEndBalance = row.some(c => /End Balance|رصيد نهائي/i.test(c));
+    if(hasEndBalance){
+      // البحث عن Debit و Credit في نفس الصف
+      const debitIdx = row.findIndex(c => /Debit|مدين/i.test(c) && !/End Balance|Initial|Jun/i.test(c));
+      const creditIdx = row.findIndex(c => /Credit|دائن/i.test(c) && !/End Balance|Initial|Jun/i.test(c));
+      if(debitIdx > -1 && creditIdx > -1){
+        // البحث عن عمود اسم الحساب
+        const nameIdx = row.findIndex(c => /Account Name|Account|حساب|اسم/i.test(c));
+        return {headerRowIdx: i, nameIdx: nameIdx > -1 ? nameIdx : 1, debitIdx, creditIdx};
+      }
     }
   }
   
-  return {headerRowIdx: 0, nameIdx: 0, debitIdx: 1, creditIdx: 2};
+  return {headerRowIdx: 0, nameIdx: 1, debitIdx: 6, creditIdx: 7};
 }
 
 function handleWorkbookData(json){
   const {headerRowIdx, nameIdx, debitIdx, creditIdx} = detectColumns(json);
-  const totalRe = /^(total|grand total|الإجمالي|إجمالي|اجمالي|المجموع|الاجمالي|الميزان|مجموع|المجموع العام)/i;
+  const totalRe = /^(total|grand total|الإجمالي|إجمالي|اجمالي|المجموع|الاجمالي|الميزان|مجموع|المجموع العام|Total)/i;
   const newRows = [];
 
   json.slice(headerRowIdx + 1).forEach((r, idx) => {
     if (!r || r.length === 0) return;
     const name = String((r && r[nameIdx]) ?? '').trim();
-    if(!name || totalRe.test(name) || name.length < 2) return;
+    if(!name || totalRe.test(name) || name.length < 2 || /^[0-9]+$/.test(name)) return;
     
     const debit = debitIdx > -1 && debitIdx < r.length ? parseNum(r[debitIdx]) : 0;
     const credit = creditIdx > -1 && creditIdx < r.length ? parseNum(r[creditIdx]) : 0;
@@ -1303,7 +1239,7 @@ function exportToExcel() {
   const wb = XLSX.utils.book_new();
   const data = lastGeneratedData;
   
-  // ====== 1. شيت قائمة الدخل ======
+  // ====== 1. Income Statement ======
   const incomeData = [];
   incomeData.push(['قائمة الدخل']);
   incomeData.push(['البيان', 'المبلغ']);
@@ -1333,10 +1269,10 @@ function exportToExcel() {
   incomeData.push(['صافي الربح', income.net_income]);
   
   const wsIncome = XLSX.utils.aoa_to_sheet(incomeData);
-  wsIncome['!cols'] = [{wch:45}, {wch:20}];
+  wsIncome['!cols'] = [{wch:50}, {wch:20}];
   XLSX.utils.book_append_sheet(wb, wsIncome, 'قائمة الدخل');
   
-  // ====== 2. شيت المركز المالي ======
+  // ====== 2. Balance Sheet ======
   const balanceData = [];
   balanceData.push(['المركز المالي']);
   balanceData.push(['البيان', 'المبلغ']);
@@ -1398,10 +1334,10 @@ function exportToExcel() {
   balanceData.push(['حالة التوازن', bs.is_balanced ? 'متوازن ✓' : 'غير متوازن - الفرق: ' + Math.abs(bs.difference || 0)]);
   
   const wsBalance = XLSX.utils.aoa_to_sheet(balanceData);
-  wsBalance['!cols'] = [{wch:45}, {wch:20}];
+  wsBalance['!cols'] = [{wch:50}, {wch:20}];
   XLSX.utils.book_append_sheet(wb, wsBalance, 'المركز المالي');
   
-  // ====== 3. شيت قائمة التدفقات النقدية ======
+  // ====== 3. Cash Flow ======
   const cfData = [];
   cfData.push(['قائمة التدفقات النقدية']);
   cfData.push(['البيان', 'المبلغ']);
@@ -1445,10 +1381,10 @@ function exportToExcel() {
   cfData.push(['مطابقة رصيد النقدية مع المركز المالي', cf.matches_balance_sheet_cash ? '✓ متطابق' : '✗ غير متطابق']);
   
   const wsCF = XLSX.utils.aoa_to_sheet(cfData);
-  wsCF['!cols'] = [{wch:45}, {wch:20}];
+  wsCF['!cols'] = [{wch:50}, {wch:20}];
   XLSX.utils.book_append_sheet(wb, wsCF, 'التدفقات النقدية');
   
-  // ====== 4. شيت الإيضاحات ======
+  // ====== 4. Notes ======
   const notesData = [];
   notesData.push(['الإيضاحات المحاسبية']);
   notesData.push([]);
@@ -1472,7 +1408,7 @@ function exportToExcel() {
   wsNotes['!cols'] = [{wch:80}];
   XLSX.utils.book_append_sheet(wb, wsNotes, 'الإيضاحات');
   
-  // ====== 5. شيت التحليل المالي ======
+  // ====== 5. Analysis ======
   const analysisData = [];
   analysisData.push(['التقرير التحليلي']);
   analysisData.push([]);
@@ -1517,7 +1453,7 @@ function exportToExcel() {
   wsAnalysis['!cols'] = [{wch:30}, {wch:25}, {wch:45}];
   XLSX.utils.book_append_sheet(wb, wsAnalysis, 'التحليل المالي');
   
-  // ====== 6. شيت ملخص البيانات المدخلة ======
+  // ====== 6. Input Data ======
   const inputData = [];
   inputData.push(['ملخص بيانات ميزان المراجعة المدخلة']);
   inputData.push([]);
@@ -1545,7 +1481,7 @@ function exportToExcel() {
   wsInput['!cols'] = [{wch:8}, {wch:40}, {wch:18}, {wch:18}, {wch:30}];
   XLSX.utils.book_append_sheet(wb, wsInput, 'المدخلات');
   
-  // ====== 7. شيت فهرس المحتويات ======
+  // ====== 7. Index ======
   const indexData = [];
   indexData.push(['فهرس القوائم المالية']);
   indexData.push([]);
