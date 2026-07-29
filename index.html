@@ -317,13 +317,14 @@
           <th style="width:40px;"></th>
         </tr>
       </thead>
-      <tbody id="tbBody"></tbody>
+      <tbody id="tbBody">
+        <!-- سيتم إضافة الصفوف هنا عبر JavaScript -->
+      </tbody>
     </table>
 
     <div class="tb-tools">
       <button class="btn btn-brass" onclick="addRow()">＋ إضافة حساب</button>
       <button class="btn btn-ghost" onclick="autoClassifyAll()">🏷 تصنيف تلقائي للحسابات</button>
-      <button class="btn btn-ghost" onclick="loadSample()">↺ إعادة تحميل المثال</button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 مسح الكل</button>
     </div>
 
@@ -380,11 +381,11 @@
 <div class="pdf-print-content" id="pdfPrintContent"></div>
 
 <script>
-let rows = [];
-let rowIdCounter = 0;
-let lastGeneratedData = null;
+var rows = [];
+var rowIdCounter = 0;
+var lastGeneratedData = null;
 
-const CATEGORY_GROUPS = [
+var CATEGORY_GROUPS = [
   {label:'الأصول المتداولة', opts:[
     ['cash','نقدية وما يعادلها'],
     ['ar','مدينون تجاريون'],
@@ -437,7 +438,7 @@ const CATEGORY_GROUPS = [
   ]},
 ];
 
-const DEBIT_NATURE = new Set([
+var DEBIT_NATURE = new Set([
   'cash','ar','prepaid_to_supplier','inventory','prepaid','other_ca',
   'ppe','intangible','other_nca','accum_dep','accum_amort',
   'cogs','sga','depreciation','finance_cost','tax','other_expense',
@@ -446,7 +447,7 @@ const DEBIT_NATURE = new Set([
 ]);
 
 // ====== نظام تصنيف متطور ======
-const CLASSIFY_RULES = [
+var CLASSIFY_RULES = [
   // البنوك والنقد
   { regex: /\b(?:KFH|Warba|Nbk|Bank|VISA|CARD|cash|bank|نقد|صندوق|حساب جاري)\b/i, category: 'cash', priority: 95 },
   { regex: /^11120[0-9]|^11121[0-9]/, category: 'cash', priority: 90 },
@@ -536,17 +537,18 @@ const CLASSIFY_RULES = [
   { regex: /^99999|Undistrubited/, category: 'retained', priority: 50 },
 ];
 
-function classifyAccount(name, debit = 0, credit = 0) {
+function classifyAccount(name, debit, credit) {
   if (!name || typeof name !== 'string') return '';
-  const trimmedName = name.trim();
+  var trimmedName = name.trim();
   
-  let bestMatch = '';
-  let bestScore = 0;
+  var bestMatch = '';
+  var bestScore = 0;
   
-  for (const rule of CLASSIFY_RULES) {
+  for (var i = 0; i < CLASSIFY_RULES.length; i++) {
+    var rule = CLASSIFY_RULES[i];
     if (rule.regex.test(trimmedName)) {
-      const match = trimmedName.match(rule.regex);
-      const score = rule.priority + (match ? match[0].length / 100 : 0);
+      var match = trimmedName.match(rule.regex);
+      var score = rule.priority + (match ? match[0].length / 100 : 0);
       if (score > bestScore) {
         bestScore = score;
         bestMatch = rule.category;
@@ -604,64 +606,43 @@ function classifyAccount(name, debit = 0, credit = 0) {
 }
 
 function categorySelectHTML(rowId, selected){
-  let html = '<select data-field="cat" data-id="' + rowId + '" class="' + (selected ? '' : 'unclassified') + '">';
+  var html = '<select data-field="cat" data-id="' + rowId + '" class="' + (selected ? '' : 'unclassified') + '">';
   html += '<option value="">— اختر التصنيف —</option>';
-  CATEGORY_GROUPS.forEach(function(g) {
+  for (var i = 0; i < CATEGORY_GROUPS.length; i++) {
+    var g = CATEGORY_GROUPS[i];
     html += '<optgroup label="' + esc(g.label) + '">';
-    g.opts.forEach(function(opt) {
+    for (var j = 0; j < g.opts.length; j++) {
+      var opt = g.opts[j];
       html += '<option value="' + opt[0] + '" ' + (opt[0]===selected?'selected':'') + '>' + esc(opt[1]) + '</option>';
-    });
+    }
     html += '</optgroup>';
-  });
+  }
   html += '</select>';
   return html;
 }
 
-function sampleRows(){
-  return [
-    ["KFH Bank", 150, 0],
-    ["Warba Bank", 39301, 0],
-    ["NBK Bank", 5864, 0],
-    ["TR - ACTIVTRADES CORP", 15252, 0],
-    ["Refundable Deposits", 250, 0],
-    ["Inventory - raw material", 455, 0],
-    ["Prepaid Expenses - Rent", 0, 0],
-    ["FA - Furniture & Fixtures", 6528, 0],
-    ["FA - Accumulated Depreciation - Furniture", 0, 3170],
-    ["TP - Suppliers", 0, 717],
-    ["Accrued Expenses - Salaries", 0, 433],
-    ["Capital - Ahmed", 0, 330],
-    ["Partner Current Account - Ahmed", 0, 4740],
-    ["Retained Earnings", 0, 41612],
-    ["training courses Revenue", 0, 18298],
-    ["Trading commission Revenue - ACTIVTRADES", 0, 64255],
-    ["OE - Cost of Sales - Trainers Commissions", 9778, 0],
-    ["G&A - Staff Costs - Salaries", 15688, 0],
-    ["G&A - Marketing Expenses - Advertisement", 9217, 0],
-    ["Other G&A Expenses - Shop Rent", 12825, 0],
-    ["Other G&A Expenses - zakat expense", 1119, 0],
-    ["Depreciation Expense - Furniture", 649, 0]
-  ];
-}
-
-function loadSample(){
-  rows = sampleRows().map(function(r) {
-    return {id: rowIdCounter++, name:r[0], debit:r[1], credit:r[2], cat:classifyAccount(r[0], r[1], r[2])};
-  });
+function addRow(){
+  rows.push({id: rowIdCounter++, name:"", debit:0, credit:0, cat:""});
   renderRows();
 }
 
-function autoClassifyAll(){
-  rows.forEach(function(r) { 
-    if (r.name) {
-      r.cat = classifyAccount(r.name, r.debit, r.credit);
-    }
-  });
+function deleteRow(id){
+  rows = rows.filter(function(r) { return r.id !== id; });
+  if(rows.length === 0) addRow();
   renderRows();
 }
 
 function clearAll(){
   rows = [];
+  lastGeneratedData = null;
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('exportExcelBtn').style.display = 'none';
+  document.getElementById('exportPdfBtn').style.display = 'none';
+  document.getElementById('panel-income').innerHTML = '';
+  document.getElementById('panel-balance').innerHTML = '';
+  document.getElementById('panel-cashflow').innerHTML = '';
+  document.getElementById('panel-notes').innerHTML = '';
+  document.getElementById('panel-analysis').innerHTML = '';
   addRow();
 }
 
@@ -781,17 +762,6 @@ uploadZone.addEventListener('drop', function(e) {
   if(e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 });
 
-function addRow(){
-  rows.push({id: rowIdCounter++, name:"", debit:0, credit:0, cat:""});
-  renderRows();
-}
-
-function deleteRow(id){
-  rows = rows.filter(function(r) { return r.id !== id; });
-  if(rows.length === 0) rows.push({id: rowIdCounter++, name:"", debit:0, credit:0, cat:""});
-  renderRows();
-}
-
 function esc(s){
   return String(s ?? "").replace(/[&<>"']/g, function(c) {
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
@@ -805,6 +775,9 @@ function fmt(n){
 
 function renderRows(){
   var tbody = document.getElementById('tbBody');
+  if (rows.length === 0) {
+    rows.push({id: rowIdCounter++, name:"", debit:0, credit:0, cat:""});
+  }
   tbody.innerHTML = rows.map(function(r, i) {
     return '<tr data-id="' + r.id + '">' +
       '<td class="num">' + (i+1) + '</td>' +
@@ -1891,7 +1864,8 @@ function exportToPDF() {
   }, 1000);
 }
 
-loadSample();
+// بدء التطبيق بدون مثال - صف واحد فارغ
+addRow();
 </script>
 </body>
 </html>
