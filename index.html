@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root{
     --ink:#16241C;
@@ -112,6 +113,10 @@
   .btn-main:hover{ background:#256341;}
   .btn-main:disabled{ background:#9AAF9E; cursor:not-allowed; box-shadow:none;}
   .btn[disabled]{ opacity:.6; cursor:not-allowed;}
+  .btn-excel{ background:#217346; color:#fff;}
+  .btn-excel:hover{ background:#1a5c38;}
+  .btn-pdf{ background:#b22222; color:#fff;}
+  .btn-pdf:hover{ background:#8b1a1a;}
 
   .tb-totals{ display:flex; gap:18px; margin-top:14px; flex-wrap:wrap;}
   .tb-total-pill{ background:var(--paper-deep); border-radius:10px; padding:10px 16px; font-size:13.5px; display:flex; gap:8px; align-items:baseline;}
@@ -120,7 +125,8 @@
   .warn-box{ background:var(--signal-soft); border:1px solid #E7C3BF; color:#7A2A2A; border-radius:12px; padding:12px 16px; font-size:13.5px; margin-top:14px; display:none;}
   .warn-box.show{ display:block;}
 
-  .gen-row{ display:flex; justify-content:flex-end; margin-top:20px;}
+  .gen-row{ display:flex; gap:12px; margin-top:20px; flex-wrap:wrap; justify-content:flex-end;}
+  .gen-row .btn{ flex:0 1 auto;}
 
   .loading{ display:none; align-items:center; gap:12px; padding:20px; font-family:'Cairo',sans-serif; color:var(--ink-soft);}
   .loading.show{ display:flex;}
@@ -167,10 +173,49 @@
   .bullet-list{ margin:0; padding-right:20px; line-height:2; font-size:14px; color:var(--ink-soft);}
   .bullet-list.flag li{ color:#7A2A2A;}
 
-  footer{ text-align:center; padding:26px; color:var(--ink-soft); font-size:12.5px;}
+  /* Footer المطور */
+  .developer-footer{
+    margin-top:40px;
+    padding:24px 20px;
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:16px;
+    text-align:center;
+    border-top:4px solid var(--brass);
+  }
+  .developer-footer .dev-name{
+    font-family:'Cairo',sans-serif;
+    font-size:20px;
+    font-weight:800;
+    color:var(--brass);
+  }
+  .developer-footer .dev-info{
+    display:flex;
+    justify-content:center;
+    gap:30px;
+    flex-wrap:wrap;
+    margin-top:8px;
+    font-size:14px;
+    color:#C9D9C3;
+  }
+  .developer-footer .dev-info a{
+    color:#C9D9C3;
+    text-decoration:none;
+    transition:.2s;
+  }
+  .developer-footer .dev-info a:hover{
+    color:var(--brass);
+  }
+  .developer-footer .dev-copy{
+    margin-top:12px;
+    font-size:12px;
+    color:#7A8F7A;
+  }
+
+  footer{ text-align:center; padding:20px; color:var(--ink-soft); font-size:12.5px;}
 
   @media print{
-    header.hero, .tb-tools, .gen-row, .tabs{ display:none !important;}
+    header.hero, .tb-tools, .gen-row, .tabs, .btn-excel, .btn-pdf, .developer-footer{ display:none !important;}
     .tab-panel{ display:block !important; page-break-inside:avoid;}
     body{ background:#fff;}
   }
@@ -263,6 +308,8 @@
 
     <div class="gen-row">
       <button class="btn btn-main" id="genBtn" onclick="generateStatements()">⚡ توليد القوائم المالية الكاملة</button>
+      <button class="btn btn-excel" id="exportExcelBtn" onclick="exportToExcel()" style="display:none;">📊 استخراج Excel</button>
+      <button class="btn btn-pdf" id="exportPdfBtn" onclick="exportToPDF()" style="display:none;">📄 استخراج PDF</button>
     </div>
 
     <div class="error-box" id="errorBox"></div>
@@ -286,6 +333,16 @@
     </div>
   </section>
 
+  <!-- Footer المطور -->
+  <div class="developer-footer">
+    <div class="dev-name">أ. أحمد عبدالكريم</div>
+    <div class="dev-info">
+      <span>📧 <a href="mailto:mr.ahmed22296@gmail.com">mr.ahmed22296@gmail.com</a></span>
+      <span>📱 <a href="tel:+96560085043">60085043</a> / <a href="tel:+201201487209">01201487209</a></span>
+    </div>
+    <div class="dev-copy">© 2026 جميع الحقوق محفوظة — مولد القوائم المالية</div>
+  </div>
+
 </main>
 
 <footer>مولد القوائم المالية — أداة مساعدة للتحليل الأولي، ولا تُغني عن مراجعة محاسب قانوني معتمد قبل الاعتماد النهائي.</footer>
@@ -293,11 +350,13 @@
 <script>
 let rows = [];
 let rowIdCounter = 0;
+let lastGeneratedData = null;
 
 const CATEGORY_GROUPS = [
   {label:'الأصول المتداولة', opts:[
     ['cash','نقدية وما يعادلها'],
     ['ar','حسابات مدينة (عملاء)'],
+    ['prepaid_to_supplier','دفعات مقدمة للموردين'],
     ['inventory','مخزون'],
     ['prepaid','مصروفات مدفوعة مقدماً'],
     ['other_ca','أصول متداولة أخرى'],
@@ -338,107 +397,58 @@ const CATEGORY_GROUPS = [
     ['other_expense','مصاريف أخرى'],
   ]},
 ];
-const CATEGORY_LABELS = {};
-CATEGORY_GROUPS.forEach(g => g.opts.forEach(([v,l]) => CATEGORY_LABELS[v] = l));
 
-const DEBIT_NATURE = new Set(['cash','ar','inventory','prepaid','other_ca','ppe','intangible','other_nca','cogs','sga','depreciation','finance_cost','tax','other_expense','dividends']);
+const DEBIT_NATURE = new Set([
+  'cash','ar','prepaid_to_supplier','inventory','prepaid','other_ca',
+  'ppe','intangible','other_nca',
+  'cogs','sga','depreciation','finance_cost','tax','other_expense','dividends'
+]);
 
-// ====== ENHANCED CLASSIFICATION RULES - Bilingual (Arabic + English) ======
-// ORDER MATTERS - more specific rules should come first
+// ====== SYSTEME DE CLASSIFICATION AMÉLIORÉ ======
 const CLASSIFY_RULES = [
-  // === TRADE RECEIVABLE (TR- prefix) - accounts with company/customer names ===
+  // ---- PRIORITÉ 1 : COMPTES FOURNISSEURS (avec distinction selon solde) ----
+  [/^(TP|tp)\s*[-–—]\s*/i, 'supplier_account'],
+  [/(?:supplier|vendor|fournisseur|مورد|دائن|حسابات\s*دائنة|ذمم\s*دائنة|creditor|payable)\s*(?!.*(?:prepaid|advance|مقدم|دفعة\s*مقدمة))/i, 'supplier_account'],
+  
+  // ---- COMPTES CLIENTS (AR) ----
   [/^TR\s*[-–—]\s*/i, 'ar'],
-  [/^TP\s*[-–—]\s*/i, 'ar'],
-  // Company/customer names with common suffixes
-  [/(?:corp|inc|llc|ltd|company|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|شركات?)\s*(?!.*(?:expense|cost|revenue|sales|income))/i, 'ar'],
-  // Names that look like customer/vendor accounts (have a name after prefix)
-  [/(?:customer|عميل|client|vendor|مورد|supplier|dealer|موزع|agent|وكيل)\s*[-–—]\s*/i, 'ar'],
+  [/(?:customer|client|عميل|receivable|debiteur|مدين|ذمم\s*مدينة|حسابات\s*مدينة|عملاء|debtor|receivable)\s*(?!.*(?:supplier|fournisseur|مورد))/i, 'ar'],
   
-  // === ACCOUNTS RECEIVABLE (general) ===
-  [/trade\s*receivable|receivable|debtor|ذمم\s*مدينة|حسابات\s*مدينة|اوراق\s*قبض|عملاء|مدين(?!\s*دائن)/i, 'ar'],
-  
-  // === ACCOUNTS PAYABLE ===
-  [/trade\s*payable|payable|supplier|creditor|vendor|مورد|دائن|ذمم\s*دائنة|حسابات\s*دائنة/i, 'ap'],
-  
-  // === Accumulated depreciation
-  [/مجمع\s*إهلاك|مجمع\s*استهلاك|accum(ulated)?\s*dep|accumulated\s*amort|acc\.?\s*dep/i, 'accum_dep'],
-  
-  // === Depreciation & Amortization
-  [/إهلاك|استهلاك|depreciation|amorti[sz]ation|اهلاك|استهلاك\s*الأصول|depr\.?|amort\.?/i, 'depreciation'],
-  
-  // === Cash & Banks (including Visa, Mastercard, bank accounts)
-  [/نقدية|نقد\s*|صندوق|بنك|cash|bank|visa|mastercard|knet|حساب\s*جاري|شيكات\s*تحصيل|card|current\s*account|checking/i, 'cash'],
-  
-  // === Inventory
-  [/مخزون|inventory|stock|بضاعة|مواد\s*خام|بضائع|raw\s*material|finished\s*goods|merchandise/i, 'inventory'],
-  
-  // === Prepaid expenses
+  // ---- AUTRES COMPTES ----
+  [/مجمع\s*إهلاك|accum(ulated)?\s*dep|accumulated\s*amort/i, 'accum_dep'],
+  [/إهلاك|استهلاك|depreciation|amorti[sz]ation|اهلاك|depr\.?|amort\.?/i, 'depreciation'],
+  [/نقدية|نقد|صندوق|بنك|cash|bank|visa|mastercard|knet|حساب\s*جاري|شيكات|card|current\s*account/i, 'cash'],
+  [/مخزون|inventory|stock|بضاعة|مواد\s*خام|raw\s*material|finished\s*goods|merchandise/i, 'inventory'],
   [/مقدم|مقدماً|prepaid|مصروفات\s*مقدمة|مصروف\s*مقدم|تأمين\s*مقدم|prepayments?|prepaid\s*expenses?/i, 'prepaid'],
-  
-  // === Property, Plant & Equipment (Fixed Assets)
-  [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property, plant|أصول\s*ثابتة|معدات\s*مكتبية|fixtures|leasehold|improvements|fa\s*[-–—]\s*historical|fixed\s*assets|pp&e|capital\s*assets|decoration|ديكور|computer|حاسوب|furniture\s*&\s*fixtures|computer\s*equipment/i, 'ppe'],
-  
-  // === Intangible Assets
-  [/غير ملموس|شهرة|براءة|intangible|goodwill|patent|حقوق\s*امتياز|trademark|copyright|licenses?|franchise|trade\s*mark|online/i, 'intangible'],
-  
-  // === Accrued Expenses
+  [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property|plant|أصول\s*ثابتة|fa\s*[-–—]\s*historical|fixed\s*assets|pp&e|decoration|ديكور|computer|حاسوب|furniture\s*&\s*fixtures/i, 'ppe'],
+  [/غير ملموس|شهرة|براءة|intangible|goodwill|patent|trademark|copyright|licenses?|franchise|trade\s*mark|online/i, 'intangible'],
   [/مستحق|accrued|مصروفات\s*مستحقة|مستحقات\s*موظفين|accruals?|accrued\s*expenses?/i, 'accrued'],
-  
-  // === Short-term loans
-  [/قرض.*قصير|قصير.*قرض|short.?term loan|سلف\s*قصيرة|قروض\s*قصيرة|short\s*term\s*borrowings|current\s*portion/i, 'st_loan'],
-  
-  // === Long-term loans
-  [/قرض.*طويل|طويل.*قرض|long.?term loan|قروض\s*طويلة|سلف\s*طويلة|long\s*term\s*borrowings|long\s*term\s*debt|notes\s*payable/i, 'lt_loan'],
-  
-  // === End of Service Benefits / Employee benefits
+  [/قرض.*قصير|short.?term loan|سلف\s*قصيرة|قروض\s*قصيرة|short\s*term\s*borrowings|current\s*portion/i, 'st_loan'],
+  [/قرض.*طويل|long.?term loan|قروض\s*طويلة|سلف\s*طويلة|long\s*term\s*borrowings|long\s*term\s*debt|notes\s*payable/i, 'lt_loan'],
   [/مكافأة|نهاية الخدمة|end of service|gratuity|تعويضات\s*نهاية\s*خدمة|employee\s*benefits|pension|provident/i, 'eosb'],
-  
-  // === Capital / Share Capital
-  [/رأس المال|capital stock|share capital|رأس\s*مال|اسهم\s*رأسمالية|common\s*stock|preferred\s*stock|paid-up\s*capital|issued\s*capital/i, 'capital'],
-  
-  // === Reserves
-  [/احتياطي|reserve|احتياطيات|احتياطي\s*قانوني|legal\s*reserve|statutory\s*reserve|retained\s*earnings\s*reserve/i, 'reserves'],
-  
-  // === Retained Earnings
-  [/أرباح مبقاة|أرباح مدورة|retained earnings|ارباح\s*محتجزة|retained\s*earnings|accumulated\s*profits|undistributed\s*profits/i, 'retained'],
-  
-  // === Dividends
+  [/رأس المال|capital stock|share capital|رأس\s*مال|اسهم\s*رأسمالية|common\s*stock|preferred\s*stock|paid-up\s*capital/i, 'capital'],
+  [/احتياطي|reserve|احتياطيات|احتياطي\s*قانوني|legal\s*reserve|statutory\s*reserve/i, 'reserves'],
+  [/أرباح مبقاة|retained earnings|ارباح\s*محتجزة|retained\s*earnings|accumulated\s*profits|undistributed\s*profits/i, 'retained'],
   [/توزيعات|dividends?|ارباح\s*موزعة|توزيع\s*ارباح|cash\s*dividend|stock\s*dividend/i, 'dividends'],
-  
-  // === Revenue / Sales (excluding TR-/TP- which are receivable)
-  [/(?:revenue|sales|مبيعات|إيرادات|ايرادات\s*تشغيلية|مبيعات\s*سلع|ايراد\s*الخدمات|ايرادات\s*النشاط|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|product\s*sales|turnover|income\s*from\s*operations)(?!\s*[-–—]\s*[A-Z])/i, 'revenue'],
-  
-  // === Other Income
-  [/إيرادات أخرى|other income|ايرادات\s*غير\s*تشغيلية|ارباح\s*رأسمالية|دخل\s*استثماري|non-operating\s*income|investment\s*income|interest\s*income|rental\s*income|gain\s*on\s*sale|dividend\s*income|other\s*revenue/i, 'other_income'],
-  
-  // === Cost of Goods Sold / Cost of Sales
-  [/تكلفة المبيعات|cost of (goods|sales)|cogs|تكلفة\s*البضاعة|تكلفة\s*الخدمات|مشتريات|مصاريف\s*مباشرة|direct\s*cost|cost\s*of\s*sales|cost\s*of\s*goods\s*sold|purchases|freight\s*in|inventory\s*cost/i, 'cogs'],
-  
-  // === Finance Cost / Interest
-  [/تمويل|فوائد|فائدة|interest expense|finance cost|مصاريف\s*تمويلية|عمولات\s*قروض|bank\s*charges|loan\s*interest|borrowing\s*cost|financial\s*charges/i, 'finance_cost'],
-  
-  // === Tax / Zakat
-  [/ضريبة|زكاة|tax|zakat|ضريبة\s*القيمة\s*المضافة|ضريبة\s*الدخل|income\s*tax|sales\s*tax|vat|corporate\s*tax|withholding\s*tax/i, 'tax'],
-  
-  // === Other Expenses
-  [/مصاريف أخرى|other expense|مصروفات\s*متفرقة|خسائر\s*تشغيلية|مصاريف\s*غير\s*مباشرة|miscellaneous\s*expense|sundry\s*expense|general\s*expense|operating\s*expense|non-operating\s*expense|loss\s*on\s*sale/i, 'other_expense'],
-  
-  // === Selling, Marketing, Admin Expenses
-  [/بيعي|تسويق|إداري|عمومي|selling|marketing|admin|general expense|مصاريف\s*بيعية|مصاريف\s*تسويقية|مصاريف\s*إدارية|مصاريف\s*عمومية|رواتب\s*موظفين|اجور\s*عاملين|مصروفات\s*مكتبية|sga|selling\s*expenses?|administrative\s*expenses?|marketing\s*expenses?|salaries?|wages?|rent\s*expense|utilities|office\s*supplies|travel\s*expense|entertainment|professional\s*fees|consulting\s*fees|legal\s*fees|audit\s*fees|insurance\s*expense|maintenance|repairs|advertising|promotion|commission|brokerage|sga|sales\s*expense/i, 'sga'],
+  [/\b(?:revenue|sales|مبيعات|إيرادات|ايرادات\s*تشغيلية|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|turnover|income\s*from\s*operations)(?!\s*[-–—]\s*[A-Z])/i, 'revenue'],
+  [/إيرادات أخرى|other income|non-operating\s*income|investment\s*income|interest\s*income|rental\s*income|gain\s*on\s*sale|dividend\s*income/i, 'other_income'],
+  [/تكلفة المبيعات|cost of (goods|sales)|cogs|تكلفة\s*البضاعة|مشتريات|direct\s*cost|cost\s*of\s*sales|purchases|freight\s*in/i, 'cogs'],
+  [/تمويل|فوائد|فائدة|interest expense|finance cost|مصاريف\s*تمويلية|bank\s*charges|loan\s*interest|borrowing\s*cost/i, 'finance_cost'],
+  [/ضريبة|زكاة|tax|zakat|ضريبة\s*القيمة\s*المضافة|ضريبة\s*الدخل|income\s*tax|sales\s*tax|vat|corporate\s*tax/i, 'tax'],
+  [/مصاريف أخرى|other expense|مصروفات\s*متفرقة|خسائر\s*تشغيلية|miscellaneous\s*expense|sundry\s*expense|general\s*expense|non-operating\s*expense/i, 'other_expense'],
+  [/بيعي|تسويق|إداري|عمومي|selling|marketing|admin|general expense|sga|selling\s*expenses?|administrative\s*expenses?|marketing\s*expenses?|salaries?|wages?|rent\s*expense|utilities|office\s*supplies|travel\s*expense|professional\s*fees|insurance\s*expense|maintenance|repairs|advertising|promotion|commission|brokerage|sales\s*expense/i, 'sga'],
 ];
 
-// ====== ENHANCED CLASSIFICATION FUNCTION ======
 function classifyAccount(name, debit = 0, credit = 0) {
   if (!name || typeof name !== 'string') return '';
   const trimmedName = name.trim();
   
-  // First try: exact keyword matching with priority
+  // ---- ÉTAPE 1 : RECHERCHE PAR MOTS-CLÉS ----
   let bestMatch = '';
   let bestScore = 0;
   
   for (const [regex, category] of CLASSIFY_RULES) {
     if (regex.test(trimmedName)) {
-      // Calculate match score based on length of matched text
       const match = trimmedName.match(regex);
       if (match) {
         const score = match[0].length;
@@ -450,19 +460,28 @@ function classifyAccount(name, debit = 0, credit = 0) {
     }
   }
   
+  // ---- ÉTAPE 2 : SI C'EST UN COMPTE FOURNISSEUR, ON AJUSTE SELON LE SOLDE ----
+  if (bestMatch === 'supplier_account') {
+    // Si le solde est débiteur (debit > credit) => avance à un fournisseur
+    if (debit > credit) {
+      return 'prepaid_to_supplier';
+    }
+    // Si le solde est créditeur => fournisseur (ap)
+    return 'ap';
+  }
+  
   if (bestMatch) return bestMatch;
   
-  // Second try: fallback based on account nature (debit/credit)
-  // If account has credit balance only, it's likely revenue or liability
+  // ---- ÉTAPE 3 : FALLBACK BASÉ SUR LA NATURE DU COMPTE ----
+  // Compte avec solde créditeur uniquement
   if (credit > 0 && debit === 0) {
-    // Check if it might be a liability
+    // Vérifier si c'est un passif
     const liabilityKeywords = /قرض|سلف|دائن|مورد|مستحق|مكافأة|ضريبة|زكاة|loan|payable|accrued|liability|debt|credit|supplier|vendor|tax|zakat|gratuity|end of service|note|bond|refundable|deposit/i;
     if (liabilityKeywords.test(trimmedName)) {
       if (/payable|supplier|vendor|creditor|دائن|مورد/.test(trimmedName)) return 'ap';
-      if (/refundable|deposit|وديعة|تأمين|ضمان/i.test(trimmedName)) return 'other_cl';
+      if (/refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) return 'other_cl';
       if (/loan|borrowing|قرض|سلف/.test(trimmedName)) {
         if (/short|current|قصير|جاري/.test(trimmedName)) return 'st_loan';
-        if (/long|طويل|non-current|غير متداول/.test(trimmedName)) return 'lt_loan';
         return 'lt_loan';
       }
       if (/accrued|مستحق/.test(trimmedName)) return 'accrued';
@@ -470,58 +489,47 @@ function classifyAccount(name, debit = 0, credit = 0) {
       if (/gratuity|end of service|مكافأة/.test(trimmedName)) return 'eosb';
       return 'other_cl';
     }
-    // Otherwise it's likely revenue or income
     return 'revenue';
   }
   
-  // If account has debit balance only, it's likely expense or asset
+  // Compte avec solde débiteur uniquement
   if (debit > 0 && credit === 0) {
-    // Check if it might be an asset (including customer/company accounts)
+    // Vérifier si c'est un actif
     const assetKeywords = /أصول|asset|مخزون|inventory|نقد|cash|بنك|bank|أراضي|land|مباني|building|آلات|machinery|معدات|equipment|سيارات|vehicle|عملاء|customer|مدين|receivable|مقدم|prepaid|investment|استثمار|trading|تداول|decoration|ديكور|furniture|أثاث|fixtures|computer|حاسوب|equipment|معدات|tr\s*[-–—]|tp\s*[-–—]|trade\s*receivable|refundable|deposit|وديعة|تأمين|ضمان|trainers|company|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|corp|inc|llc|ltd/i;
     if (assetKeywords.test(trimmedName)) {
-      // If it looks like a customer/company account
-      if (/tr\s*[-–—]|tp\s*[-–—]|trade\s*receivable|receivable|customer|عملاء|مدين|debtor|corp|inc|llc|ltd|company|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|trainers/i.test(trimmedName)) {
-        return 'ar';
-      }
-      if (/cash|bank|نقد|بنك|card|visa|mastercard|حساب|جاري|refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) {
-        if (/refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) return 'other_ca';
-        return 'cash';
-      }
-      if (/inventory|stock|مخزون|بضاعة|raw material|finished goods/.test(trimmedName)) return 'inventory';
+      if (/tp\s*[-–—]|supplier|vendor|fournisseur|مورد/.test(trimmedName)) return 'prepaid_to_supplier';
+      if (/tr\s*[-–—]|receivable|customer|عملاء|مدين|debtor|corp|inc|llc|ltd|company|شركة|trainers/.test(trimmedName)) return 'ar';
+      if (/cash|bank|نقد|بنك|card|visa|mastercard|حساب|جاري/.test(trimmedName)) return 'cash';
+      if (/refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) return 'other_ca';
+      if (/inventory|stock|مخزون|بضاعة/.test(trimmedName)) return 'inventory';
       if (/prepaid|مقدم/.test(trimmedName)) return 'prepaid';
       if (/investment|استثمار|trading|تداول/.test(trimmedName)) return 'other_ca';
-      if (/land|building|machinery|equipment|furniture|vehicle|fixture|decoration|computer|أراضي|مباني|آلات|معدات|أثاث|سيارات|ديكور|حاسوب|fa\s*[-–—]\s*historical|fixed\s*assets|pp&e/.test(trimmedName)) return 'ppe';
-      if (/intangible|goodwill|patent|trademark|brand|غير ملموس|شهرة|براءة|علامة|trade\s*mark|online/.test(trimmedName)) return 'intangible';
+      if (/land|building|machinery|equipment|furniture|vehicle|fixture|decoration|computer|fa\s*[-–—]|fixed\s*assets|pp&e/.test(trimmedName)) return 'ppe';
+      if (/intangible|goodwill|patent|trademark|brand/.test(trimmedName)) return 'intangible';
       return 'other_ca';
     }
-    // Otherwise it's likely an expense
+    // Sinon c'est probablement une charge
     const expenseKeywords = /مصاريف|مصروفات|expense|إهلاك|استهلاك|depreciation|تكلفة|cost|بيعي|تسويق|إداري|عمومي|تمويل|فوائد|interest|ضريبة|زكاة|tax|salary|راتب|wage|أجر|rent|إيجار|utilities|مرافق|insurance|تأمين|maintenance|صيانة|repair|إصلاح|advertising|إعلان|promotion|ترويج|commission|عمولة|brokerage|وساطة|legal|قانوني|consulting|استشاري|audit|تدقيق|professional|مهني|travel|سفر|entertainment|ترفيه|office|مكتب|supplies|لوازم|marketing|تسويق|admin|إداري|selling|بيعي|general|عمومي|other|أخرى|miscellaneous|متفرقة/i;
     if (expenseKeywords.test(trimmedName)) {
-      if (/selling|marketing|admin|general|بيعي|تسويق|إداري|عمومي|sga|salary|راتب|wage|أجر|rent|إيجار|utilities|مرافق|insurance|تأمين|maintenance|صيانة|repair|إصلاح|advertising|إعلان|promotion|ترويج|commission|عمولة|office|مكتب|supplies|لوازم|travel|سفر|entertainment|ترفيه/.test(trimmedName)) return 'sga';
+      if (/selling|marketing|admin|general|بيعي|تسويق|إداري|عمومي|sga|salary|راتب|wage|rent|إيجار|utilities|insurance|maintenance|repair|advertising|promotion|commission|office|travel|entertainment/.test(trimmedName)) return 'sga';
       if (/depreciation|amortization|إهلاك|استهلاك/.test(trimmedName)) return 'depreciation';
-      if (/finance|interest|تمويل|فوائد|borrowing|loan cost/.test(trimmedName)) return 'finance_cost';
+      if (/finance|interest|تمويل|فوائد/.test(trimmedName)) return 'finance_cost';
       if (/tax|zakat|ضريبة|زكاة/.test(trimmedName)) return 'tax';
-      if (/cost of goods|cogs|تكلفة المبيعات|تكلفة البضاعة|direct cost/.test(trimmedName)) return 'cogs';
+      if (/cost of goods|cogs|تكلفة المبيعات|تكلفة البضاعة/.test(trimmedName)) return 'cogs';
       return 'other_expense';
     }
-    // Last resort: check if it looks like a customer name
-    if (/[A-Z]{2,}|[a-z]{4,}|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|trainers|company/i.test(trimmedName)) {
+    // Dernier recours: si ça ressemble à un nom de société/client
+    if (/[A-Z]{2,}|[a-z]{4,}|شركة|مؤسسة|مكتب|مصنع|مطعم|فندق|مدرسة|جامعة|مركز|مجموعة|وكالة|trainers|company/.test(trimmedName)) {
       return 'ar';
     }
     return 'other_expense';
   }
   
-  // For accounts with both debit and credit, try harder with keyword matching
-  for (const [regex, category] of CLASSIFY_RULES) {
-    if (regex.test(trimmedName)) return category;
-  }
-  
-  // Final fallback based on common keywords (Arabic + English)
-  const lowerName = trimmedName.toLowerCase();
+  // Dernier recours
   if (/revenue|sales|income|إيرادات|مبيعات|دخل/.test(trimmedName)) return 'revenue';
   if (/expense|cost|مصاريف|مصروفات|تكلفة/.test(trimmedName)) return 'other_expense';
   if (/tr\s*[-–—]|tp\s*[-–—]|receivable|مدين|عملاء|customer|corp|inc|llc|company|trainers/.test(trimmedName)) return 'ar';
-  if (/asset|أصول|مخزون|نقد|بنك|استثمار|trading/.test(trimmedName)) return 'other_ca';
+  if (/asset|أصول|مخزون|نقد|بنك|استثمار/.test(trimmedName)) return 'other_ca';
   if (/liability|payable|loan|قرض|دائن|مورد|التزام/.test(trimmedName)) return 'other_cl';
   if (/equity|capital|retained|reserve|ملكية|رأس|احتياطي|أرباح/.test(trimmedName)) return 'capital';
   
@@ -614,7 +622,6 @@ function detectColumns(json){
       return {headerRowIdx: i, nameIdx, debitIdx, creditIdx};
     }
   }
-  // fallback: assume first row is header, columns in order name/debit/credit
   return {headerRowIdx: 0, nameIdx: 0, debitIdx: 1, creditIdx: 2};
 }
 
@@ -634,13 +641,13 @@ function handleWorkbookData(json){
   });
 
   if(newRows.length === 0){
-    showUploadStatus('لم يتم العثور على صفوف صالحة في الملف. تأكد أن الملف يحتوي أعمدة اسم الحساب / مدين / دائن.', false);
+    showUploadStatus('لم يتم العثور على صفوف صالحة في الملف.', false);
     return;
   }
 
   rows = newRows;
   renderRows();
-  showUploadStatus(`تم استيراد ${newRows.length} حساباً بنجاح من الملف.`, true);
+  showUploadStatus(`تم استيراد ${newRows.length} حساباً بنجاح.`, true);
 }
 
 function handleFile(file){
@@ -653,7 +660,7 @@ function handleFile(file){
       const json = XLSX.utils.sheet_to_json(sheet, {header: 1, raw: true, defval: ''});
       handleWorkbookData(json);
     }catch(err){
-      showUploadStatus('تعذّرت قراءة الملف. تأكد أنه بصيغة xlsx أو xls أو csv صحيحة.', false);
+      showUploadStatus('تعذّرت قراءة الملف.', false);
     }
   };
   reader.onerror = () => showUploadStatus('تعذّرت قراءة الملف من القرص.', false);
@@ -958,6 +965,11 @@ function linesForCat(accounts, cat, signFlip){
 }
 
 function computeStatements(accounts, tbTotals){
+  // Gestion des comptes fournisseurs avec solde débiteur (avances)
+  const prepaidToSupplierAccounts = accounts.filter(a => a.cat === 'prepaid_to_supplier');
+  const apAccounts = accounts.filter(a => a.cat === 'ap');
+  
+  // Forcer les comptes prepaid_to_supplier à être des actifs
   const revenueLines = linesForCat(accounts, 'revenue');
   const otherIncomeLines = linesForCat(accounts, 'other_income');
   const cogsLines = linesForCat(accounts, 'cogs');
@@ -999,11 +1011,13 @@ function computeStatements(accounts, tbTotals){
   // ---- Balance Sheet ----
   const cashTotal = sumCat(accounts, 'cash');
   const arTotal = sumCat(accounts, 'ar');
+  const prepaidToSupplierTotal = sumCat(accounts, 'prepaid_to_supplier');
   const inventoryTotal = sumCat(accounts, 'inventory');
   const prepaidTotal = sumCat(accounts, 'prepaid');
   const otherCaTotal = sumCat(accounts, 'other_ca');
-  const currentAssetsLines = ['cash','ar','inventory','prepaid','other_ca'].flatMap(c => linesForCat(accounts, c));
-  const currentAssetsTotal = cashTotal + arTotal + inventoryTotal + prepaidTotal + otherCaTotal;
+  
+  const currentAssetsLines = ['cash','ar','prepaid_to_supplier','inventory','prepaid','other_ca'].flatMap(c => linesForCat(accounts, c));
+  const currentAssetsTotal = cashTotal + arTotal + prepaidToSupplierTotal + inventoryTotal + prepaidTotal + otherCaTotal;
 
   const ppeTotal = sumCat(accounts, 'ppe');
   const accumDepTotal = sumCat(accounts, 'accum_dep');
@@ -1051,7 +1065,7 @@ function computeStatements(accounts, tbTotals){
     difference: totalAssets - totalLiabEquity
   };
 
-  // ---- Cash Flow (partial — see limitations note) ----
+  // ---- Cash Flow ----
   const cfOperatingLines = [{label:'صافي الربح', amount: netIncome}];
   if(depreciationTotal) cfOperatingLines.push({label:'إضافة: الإهلاك والاستهلاك (بند غير نقدي)', amount: depreciationTotal});
   const cfOperatingTotal = netIncome + depreciationTotal;
@@ -1078,6 +1092,9 @@ function computeStatements(accounts, tbTotals){
   if(inventoryTotal){
     notes.push({title:'المخزون', content: `رصيد المخزون في نهاية الفترة ${fmt(inventoryTotal)}.`});
   }
+  if(prepaidToSupplierTotal){
+    notes.push({title:'دفعات مقدمة للموردين', content: `تم تصنيف أرصدة الموردين المدينة (دفعات مقدمة) بمبلغ ${fmt(prepaidToSupplierTotal)} كأصل متداول.`});
+  }
   if(stLoanTotal || ltLoanTotal){
     notes.push({title:'القروض', content: `قروض قصيرة الأجل ${fmt(stLoanTotal)} وقروض طويلة الأجل ${fmt(ltLoanTotal)}، بإجمالي تمويل خارجي قدره ${fmt(stLoanTotal+ltLoanTotal)}.`});
   }
@@ -1089,12 +1106,13 @@ function computeStatements(accounts, tbTotals){
     'تُعرض الأصول الثابتة بالتكلفة التاريخية مخصوماً منها مجمع الإهلاك المتراكم.',
     'يُثبت المخزون بالتكلفة أو صافي القيمة القابلة للتحقق أيهما أقل.',
     'تُحمّل الإيرادات والمصروفات على أساس مبدأ الاستحقاق المحاسبي.',
-    'أُضيف صافي ربح الفترة الحالية إلى رصيد الأرباح المبقاة الظاهر بميزان المراجعة (المفترض أنه رصيد أول المدة) للوصول إلى الرصيد الختامي في قائمة المركز المالي.'
+    'أُضيف صافي ربح الفترة الحالية إلى رصيد الأرباح المبقاة الظاهر بميزان المراجعة (المفترض أنه رصيد أول المدة) للوصول إلى الرصيد الختامي في قائمة المركز المالي.',
+    'تم تصنيف أرصدة الموردين المدينة (أي التي لها رصيد مدين) كدفعات مقدمة للموردين ضمن الأصول المتداولة، وذلك وفقاً لمبدأ المقابلة المحاسبية.'
   ];
 
   // ---- Analytical report ----
   const currentRatio = currentLiabTotal !== 0 ? currentAssetsTotal / currentLiabTotal : null;
-  const quickRatio = currentLiabTotal !== 0 ? (currentAssetsTotal - inventoryTotal) / currentLiabTotal : null;
+  const quickRatio = currentLiabTotal !== 0 ? (currentAssetsTotal - inventoryTotal - prepaidToSupplierTotal) / currentLiabTotal : null;
   const grossMargin = revenueTotal !== 0 ? grossProfit / revenueTotal : null;
   const netMargin = revenueTotal !== 0 ? netIncome / revenueTotal : null;
   const debtToEquity = totalEquity !== 0 ? totalLiabilities / totalEquity : null;
@@ -1104,7 +1122,7 @@ function computeStatements(accounts, tbTotals){
 
   const ratios = [
     {name:'نسبة التداول (Current Ratio)', value: ratioNum(currentRatio), interpretation: currentRatio === null ? 'لا توجد التزامات متداولة لحسابها.' : (currentRatio >= 1 ? 'الأصول المتداولة تغطي الالتزامات المتداولة.' : 'الأصول المتداولة أقل من الالتزامات المتداولة — إشارة إلى ضغط على السيولة.')},
-    {name:'نسبة السيولة السريعة (Quick Ratio)', value: ratioNum(quickRatio), interpretation:'قياس السيولة دون الاعتماد على تصريف المخزون.'},
+    {name:'نسبة السيولة السريعة (Quick Ratio)', value: ratioNum(quickRatio), interpretation:'قياس السيولة دون الاعتماد على تصريف المخزون والدفعات المقدمة.'},
     {name:'هامش مجمل الربح', value: pct(grossMargin), interpretation:'نسبة الربح المتبقي بعد تكلفة المبيعات مباشرة.'},
     {name:'هامش صافي الربح', value: pct(netMargin), interpretation:'نسبة صافي الربح إلى إجمالي الإيرادات.'},
     {name:'نسبة الدين إلى حقوق الملكية', value: ratioNum(debtToEquity), interpretation: debtToEquity === null ? 'لا توجد حقوق ملكية لحسابها.' : (debtToEquity > 1 ? 'الشركة تعتمد على التمويل بالدين أكثر من حقوق الملكية.' : 'اعتماد معتدل على الدين مقارنة بحقوق الملكية.')}
@@ -1124,7 +1142,8 @@ function computeStatements(accounts, tbTotals){
 
   const assumptions_used = [
     'الرصيد الظاهر لحساب الأرباح المبقاة في ميزان المراجعة اعتُبر رصيداً افتتاحياً (أول المدة)، وأُضيف إليه صافي ربح الفترة للوصول للرصيد الختامي.',
-    'قائمة التدفقات النقدية معروضة بشكل جزئي (صافي الربح + الإهلاك المضاف)؛ إذ يتعذر احتساب التغيرات في بنود رأس المال العامل (المدينون، المخزون، الدائنون) أو حركة الأصول الثابتة والقروض دون توفر أرصدة الفترة السابقة للمقارنة. للحصول على قائمة تدفقات نقدية كاملة، يُرجى توفير ميزان مراجعة للفترة السابقة أيضاً.'
+    'قائمة التدفقات النقدية معروضة بشكل جزئي (صافي الربح + الإهلاك المضاف)؛ إذ يتعذر احتساب التغيرات في بنود رأس المال العامل (المدينون، المخزون، الدائنون) أو حركة الأصول الثابتة والقروض دون توفر أرصدة الفترة السابقة للمقارنة. للحصول على قائمة تدفقات نقدية كاملة، يُرجى توفير ميزان مراجعة للفترة السابقة أيضاً.',
+    'تم تصنيف أرصدة الموردين المدينة (ذات الرصيد المدين) كدفعات مقدمة للموردين ضمن الأصول المتداولة.'
   ];
 
   return {
@@ -1156,6 +1175,7 @@ function generateStatements(){
   }
 
   const parsed = computeStatements(accounts, totals);
+  lastGeneratedData = parsed;
 
   document.getElementById('panel-income').innerHTML = renderIncomeStatement(parsed.income_statement);
   document.getElementById('panel-balance').innerHTML = renderBalanceSheet(parsed.balance_sheet);
@@ -1164,6 +1184,8 @@ function generateStatements(){
   document.getElementById('panel-analysis').innerHTML = renderAnalysis(parsed.analytical_report);
 
   resultsEl.classList.add('show');
+  document.getElementById('exportExcelBtn').style.display = 'inline-flex';
+  document.getElementById('exportPdfBtn').style.display = 'inline-flex';
   resultsEl.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
@@ -1171,6 +1193,147 @@ function showError(msg){
   const errorBox = document.getElementById('errorBox');
   errorBox.textContent = '⚠ ' + msg;
   errorBox.classList.add('show');
+}
+
+// ====== EXPORT EXCEL ======
+function exportToExcel() {
+  if (!lastGeneratedData) {
+    alert('الرجاء توليد القوائم المالية أولاً.');
+    return;
+  }
+  
+  const wb = XLSX.utils.book_new();
+  
+  // Data for Excel
+  const excelData = [];
+  
+  // Title
+  excelData.push(['القوائم المالية']);
+  excelData.push(['']);
+  
+  // Income Statement
+  excelData.push(['قائمة الدخل']);
+  excelData.push(['البيان', 'المبلغ']);
+  const income = lastGeneratedData.income_statement;
+  if (income.sections) {
+    income.sections.forEach(sec => {
+      excelData.push([sec.title, '']);
+      sec.lines.forEach(line => {
+        excelData.push([line.label, line.amount]);
+      });
+      if (sec.subtotal_label) {
+        excelData.push([sec.subtotal_label, sec.subtotal_amount]);
+      }
+    });
+  }
+  excelData.push(['مجمل الربح', income.gross_profit]);
+  excelData.push(['صافي الربح', income.net_income]);
+  excelData.push(['']);
+  
+  // Balance Sheet
+  excelData.push(['المركز المالي']);
+  excelData.push(['البيان', 'المبلغ']);
+  const bs = lastGeneratedData.balance_sheet;
+  if (bs.assets) {
+    excelData.push(['الأصول المتداولة', '']);
+    bs.assets.current.forEach(line => {
+      excelData.push([line.label, line.amount]);
+    });
+    excelData.push(['إجمالي الأصول المتداولة', bs.assets.current_total]);
+    excelData.push(['الأصول غير المتداولة', '']);
+    bs.assets.non_current.forEach(line => {
+      excelData.push([line.label, line.amount]);
+    });
+    excelData.push(['إجمالي الأصول غير المتداولة', bs.assets.non_current_total]);
+    excelData.push(['إجمالي الأصول', bs.assets.total_assets]);
+  }
+  excelData.push(['']);
+  if (bs.liabilities) {
+    excelData.push(['الالتزامات المتداولة', '']);
+    bs.liabilities.current.forEach(line => {
+      excelData.push([line.label, line.amount]);
+    });
+    excelData.push(['إجمالي الالتزامات المتداولة', bs.liabilities.current_total]);
+    excelData.push(['الالتزامات غير المتداولة', '']);
+    bs.liabilities.non_current.forEach(line => {
+      excelData.push([line.label, line.amount]);
+    });
+    excelData.push(['إجمالي الالتزامات غير المتداولة', bs.liabilities.non_current_total]);
+    excelData.push(['إجمالي الالتزامات', bs.liabilities.total_liabilities]);
+  }
+  excelData.push(['']);
+  if (bs.equity) {
+    excelData.push(['حقوق الملكية', '']);
+    bs.equity.items.forEach(line => {
+      excelData.push([line.label, line.amount]);
+    });
+    excelData.push(['إجمالي حقوق الملكية', bs.equity.total_equity]);
+    excelData.push(['إجمالي الالتزامات وحقوق الملكية', bs.total_liabilities_and_equity]);
+  }
+  excelData.push(['']);
+  
+  // Ratios
+  excelData.push(['النسب المالية']);
+  excelData.push(['النسبة', 'القيمة', 'التفسير']);
+  const analysis = lastGeneratedData.analytical_report;
+  if (analysis && analysis.ratios) {
+    analysis.ratios.forEach(r => {
+      excelData.push([r.name, r.value, r.interpretation]);
+    });
+  }
+  
+  const ws = XLSX.utils.aoa_to_sheet(excelData);
+  ws['!cols'] = [{wch:40}, {wch:20}, {wch:50}];
+  XLSX.utils.book_append_sheet(wb, ws, 'القوائم المالية');
+  
+  XLSX.writeFile(wb, 'القوائم_المالية.xlsx');
+}
+
+// ====== EXPORT PDF ======
+function exportToPDF() {
+  if (!lastGeneratedData) {
+    alert('الرجاء توليد القوائم المالية أولاً.');
+    return;
+  }
+  
+  // Create a clean printable version
+  const printContent = document.createElement('div');
+  printContent.style.cssText = 'padding:20px; font-family:Tajawal,sans-serif; direction:rtl;';
+  printContent.innerHTML = `
+    <h1 style="text-align:center;color:#16241C;">القوائم المالية</h1>
+    <hr style="border:2px solid #A9782E;">
+    <div id="pdf-income">${renderIncomeStatement(lastGeneratedData.income_statement)}</div>
+    <hr style="border:1px solid #C9D9C3;margin:30px 0;">
+    <div id="pdf-balance">${renderBalanceSheet(lastGeneratedData.balance_sheet)}</div>
+    <hr style="border:1px solid #C9D9C3;margin:30px 0;">
+    <div id="pdf-cashflow">${renderCashFlow(lastGeneratedData.cash_flow)}</div>
+    <hr style="border:1px solid #C9D9C3;margin:30px 0;">
+    <div id="pdf-notes">${renderNotes(lastGeneratedData)}</div>
+    <hr style="border:1px solid #C9D9C3;margin:30px 0;">
+    <div id="pdf-analysis">${renderAnalysis(lastGeneratedData.analytical_report)}</div>
+    <hr style="border:2px solid #A9782E;margin:30px 0;">
+    <div style="text-align:center;font-size:12px;color:#7A8F7A;">
+      <p>تم التوليد بواسطة مولد القوائم المالية</p>
+      <p>أ. أحمد عبدالكريم — mr.ahmed22296@gmail.com — 60085043 / 01201487209</p>
+    </div>
+  `;
+  
+  document.body.appendChild(printContent);
+  
+  const opt = {
+    margin: [0.5, 0.5, 0.5, 0.5],
+    filename: 'القوائم_المالية.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, letterRendering: true },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+  };
+  
+  html2pdf().set(opt).from(printContent).save().then(() => {
+    document.body.removeChild(printContent);
+  }).catch(() => {
+    document.body.removeChild(printContent);
+    alert('حدث خطأ أثناء إنشاء PDF. حاول استخدام خيار الطباعة (Ctrl+P) بدلاً من ذلك.');
+  });
 }
 
 // init
