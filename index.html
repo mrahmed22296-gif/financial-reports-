@@ -344,77 +344,80 @@ CATEGORY_GROUPS.forEach(g => g.opts.forEach(([v,l]) => CATEGORY_LABELS[v] = l));
 const DEBIT_NATURE = new Set(['cash','ar','inventory','prepaid','other_ca','ppe','intangible','other_nca','cogs','sga','depreciation','finance_cost','tax','other_expense','dividends']);
 
 // ====== ENHANCED CLASSIFICATION RULES - Bilingual (Arabic + English) ======
+// ORDER MATTERS - more specific rules should come first
 const CLASSIFY_RULES = [
-  // Accumulated depreciation
+  // === ACCOUNTS RECEIVABLE (must come before revenue rules) ===
+  // TR- prefix typically means Trade Receivable
+  [/^TR\s*[-–—]\s*/i, 'ar'],
+  [/trade\s*receivable|receivable|debtor|customer|عميل|مدين|ذمم\s*مدينة|حسابات\s*مدينة|عملاء|اوراق\s*قبض/i, 'ar'],
+  
+  // === ACCOUNTS PAYABLE ===
+  [/trade\s*payable|payable|supplier|creditor|vendor|مورد|دائن|ذمم\s*دائنة|حسابات\s*دائنة/i, 'ap'],
+  
+  // === Accumulated depreciation
   [/مجمع\s*إهلاك|مجمع\s*استهلاك|accum(ulated)?\s*dep|accumulated\s*amort|acc\.?\s*dep/i, 'accum_dep'],
   
-  // Depreciation & Amortization
+  // === Depreciation & Amortization
   [/إهلاك|استهلاك|depreciation|amorti[sz]ation|اهلاك|استهلاك\s*الأصول|depr\.?|amort\.?/i, 'depreciation'],
   
-  // Cash & Banks (including Visa, Mastercard, bank accounts)
+  // === Cash & Banks (including Visa, Mastercard, bank accounts)
   [/نقدية|نقد\s*|صندوق|بنك|cash|bank|visa|mastercard|knet|حساب\s*جاري|شيكات\s*تحصيل|card|current\s*account|checking/i, 'cash'],
   
-  // Accounts Receivable / Customers
-  [/مدين|عملاء|receivable|customers?|حسابات\s*مدينة|ذمم\s*مدينة|اوراق\s*قبض|a\/r|accounts?\s*receivable|trade\s*receivable|debtors?/i, 'ar'],
-  
-  // Inventory
+  // === Inventory
   [/مخزون|inventory|stock|بضاعة|مواد\s*خام|بضائع|raw\s*material|finished\s*goods|merchandise/i, 'inventory'],
   
-  // Prepaid expenses
+  // === Prepaid expenses
   [/مقدم|مقدماً|prepaid|مصروفات\s*مقدمة|مصروف\s*مقدم|تأمين\s*مقدم|prepayments?|prepaid\s*expenses?/i, 'prepaid'],
   
-  // Property, Plant & Equipment (Fixed Assets)
-  [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property, plant|أصول\s*ثابتة|معدات\s*مكتبية|fixtures|leasehold|improvements|fa\s*-\s*historical|fixed\s*assets|pp&e|capital\s*assets/i, 'ppe'],
+  // === Property, Plant & Equipment (Fixed Assets)
+  [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property, plant|أصول\s*ثابتة|معدات\s*مكتبية|fixtures|leasehold|improvements|fa\s*[-–—]\s*historical|fixed\s*assets|pp&e|capital\s*assets|decoration|ديكور|computer|حاسوب|furniture\s*&\s*fixtures|computer\s*equipment/i, 'ppe'],
   
-  // Intangible Assets
-  [/غير ملموس|شهرة|براءة|intangible|goodwill|patent|حقوق\s*امتياز|trademark|copyright|licenses?|franchise/i, 'intangible'],
+  // === Intangible Assets
+  [/غير ملموس|شهرة|براءة|intangible|goodwill|patent|حقوق\s*امتياز|trademark|copyright|licenses?|franchise|trade\s*mark|online/i, 'intangible'],
   
-  // Accounts Payable / Suppliers
-  [/دائن|موردون|payable|suppliers?|حسابات\s*دائنة|ذمم\s*دائنة|اوراق\s*دفع|a\/p|accounts?\s*payable|trade\s*payable|creditors?/i, 'ap'],
-  
-  // Accrued Expenses
+  // === Accrued Expenses
   [/مستحق|accrued|مصروفات\s*مستحقة|مستحقات\s*موظفين|accruals?|accrued\s*expenses?/i, 'accrued'],
   
-  // Short-term loans
+  // === Short-term loans
   [/قرض.*قصير|قصير.*قرض|short.?term loan|سلف\s*قصيرة|قروض\s*قصيرة|short\s*term\s*borrowings|current\s*portion/i, 'st_loan'],
   
-  // Long-term loans
+  // === Long-term loans
   [/قرض.*طويل|طويل.*قرض|long.?term loan|قروض\s*طويلة|سلف\s*طويلة|long\s*term\s*borrowings|long\s*term\s*debt|notes\s*payable/i, 'lt_loan'],
   
-  // End of Service Benefits / Employee benefits
+  // === End of Service Benefits / Employee benefits
   [/مكافأة|نهاية الخدمة|end of service|gratuity|تعويضات\s*نهاية\s*خدمة|employee\s*benefits|pension|provident/i, 'eosb'],
   
-  // Capital / Share Capital
+  // === Capital / Share Capital
   [/رأس المال|capital stock|share capital|رأس\s*مال|اسهم\s*رأسمالية|common\s*stock|preferred\s*stock|paid-up\s*capital|issued\s*capital/i, 'capital'],
   
-  // Reserves
+  // === Reserves
   [/احتياطي|reserve|احتياطيات|احتياطي\s*قانوني|legal\s*reserve|statutory\s*reserve|retained\s*earnings\s*reserve/i, 'reserves'],
   
-  // Retained Earnings
+  // === Retained Earnings
   [/أرباح مبقاة|أرباح مدورة|retained earnings|ارباح\s*محتجزة|retained\s*earnings|accumulated\s*profits|undistributed\s*profits/i, 'retained'],
   
-  // Dividends
+  // === Dividends
   [/توزيعات|dividends?|ارباح\s*موزعة|توزيع\s*ارباح|cash\s*dividend|stock\s*dividend/i, 'dividends'],
   
-  // Revenue / Sales
-  [/مبيعات|إيرادات|revenue|sales|ايرادات\s*تشغيلية|مبيعات\s*سلع|ايراد\s*الخدمات|ايرادات\s*النشاط|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|product\s*sales|turnover|income\s*from\s*operations|tr\s*-\s*/i, 'revenue'],
+  // === Revenue / Sales (excluding TR- which is receivable)
+  [/\b(?:revenue|sales|مبيعات|إيرادات|ايرادات\s*تشغيلية|مبيعات\s*سلع|ايراد\s*الخدمات|ايرادات\s*النشاط|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|product\s*sales|turnover|income\s*from\s*operations)(?!\s*[-–—]\s*[A-Z])/i, 'revenue'],
   
-  // Other Income
+  // === Other Income
   [/إيرادات أخرى|other income|ايرادات\s*غير\s*تشغيلية|ارباح\s*رأسمالية|دخل\s*استثماري|non-operating\s*income|investment\s*income|interest\s*income|rental\s*income|gain\s*on\s*sale|dividend\s*income|other\s*revenue/i, 'other_income'],
   
-  // Cost of Goods Sold / Cost of Sales
+  // === Cost of Goods Sold / Cost of Sales
   [/تكلفة المبيعات|cost of (goods|sales)|cogs|تكلفة\s*البضاعة|تكلفة\s*الخدمات|مشتريات|مصاريف\s*مباشرة|direct\s*cost|cost\s*of\s*sales|cost\s*of\s*goods\s*sold|purchases|freight\s*in|inventory\s*cost/i, 'cogs'],
   
-  // Finance Cost / Interest
+  // === Finance Cost / Interest
   [/تمويل|فوائد|فائدة|interest expense|finance cost|مصاريف\s*تمويلية|عمولات\s*قروض|bank\s*charges|loan\s*interest|borrowing\s*cost|financial\s*charges/i, 'finance_cost'],
   
-  // Tax / Zakat
+  // === Tax / Zakat
   [/ضريبة|زكاة|tax|zakat|ضريبة\s*القيمة\s*المضافة|ضريبة\s*الدخل|income\s*tax|sales\s*tax|vat|corporate\s*tax|withholding\s*tax/i, 'tax'],
   
-  // Other Expenses
+  // === Other Expenses
   [/مصاريف أخرى|other expense|مصروفات\s*متفرقة|خسائر\s*تشغيلية|مصاريف\s*غير\s*مباشرة|miscellaneous\s*expense|sundry\s*expense|general\s*expense|operating\s*expense|non-operating\s*expense|loss\s*on\s*sale/i, 'other_expense'],
   
-  // Selling, Marketing, Admin Expenses
+  // === Selling, Marketing, Admin Expenses
   [/بيعي|تسويق|إداري|عمومي|selling|marketing|admin|general expense|مصاريف\s*بيعية|مصاريف\s*تسويقية|مصاريف\s*إدارية|مصاريف\s*عمومية|رواتب\s*موظفين|اجور\s*عاملين|مصروفات\s*مكتبية|sga|selling\s*expenses?|administrative\s*expenses?|marketing\s*expenses?|salaries?|wages?|rent\s*expense|utilities|office\s*supplies|travel\s*expense|entertainment|professional\s*fees|consulting\s*fees|legal\s*fees|audit\s*fees|insurance\s*expense|maintenance|repairs|advertising|promotion|commission|brokerage|sga|sales\s*expense/i, 'sga'],
 ];
 
@@ -447,13 +450,13 @@ function classifyAccount(name, debit = 0, credit = 0) {
   // If account has credit balance only, it's likely revenue or liability
   if (credit > 0 && debit === 0) {
     // Check if it might be a liability
-    const liabilityKeywords = /قرض|سلف|دائن|مورد|مستحق|مكافأة|ضريبة|زكاة|loan|payable|accrued|liability|debt|credit|supplier|vendor|tax|zakat|gratuity|end of service|note|bond/i;
+    const liabilityKeywords = /قرض|سلف|دائن|مورد|مستحق|مكافأة|ضريبة|زكاة|loan|payable|accrued|liability|debt|credit|supplier|vendor|tax|zakat|gratuity|end of service|note|bond|refundable|deposit/i;
     if (liabilityKeywords.test(trimmedName)) {
       if (/payable|supplier|vendor|creditor|دائن|مورد/.test(trimmedName)) return 'ap';
+      if (/refundable|deposit|وديعة|تأمين|ضمان/i.test(trimmedName)) return 'other_cl';
       if (/loan|borrowing|قرض|سلف/.test(trimmedName)) {
         if (/short|current|قصير|جاري/.test(trimmedName)) return 'st_loan';
         if (/long|طويل|non-current|غير متداول/.test(trimmedName)) return 'lt_loan';
-        // If we can't determine, default to long-term
         return 'lt_loan';
       }
       if (/accrued|مستحق/.test(trimmedName)) return 'accrued';
@@ -468,15 +471,18 @@ function classifyAccount(name, debit = 0, credit = 0) {
   // If account has debit balance only, it's likely expense or asset
   if (debit > 0 && credit === 0) {
     // Check if it might be an asset
-    const assetKeywords = /أصول|asset|مخزون|inventory|نقد|cash|بنك|bank|أراضي|land|مباني|building|آلات|machinery|معدات|equipment|سيارات|vehicle|عملاء|customer|مدين|receivable|مقدم|prepaid|investment|استثمار|trading|تداول|decoration|ديكور|furniture|أثاث|fixtures|computer|حاسوب|equipment|معدات/i;
+    const assetKeywords = /أصول|asset|مخزون|inventory|نقد|cash|بنك|bank|أراضي|land|مباني|building|آلات|machinery|معدات|equipment|سيارات|vehicle|عملاء|customer|مدين|receivable|مقدم|prepaid|investment|استثمار|trading|تداول|decoration|ديكور|furniture|أثاث|fixtures|computer|حاسوب|equipment|معدات|tr\s*[-–—]|trade\s*receivable|refundable|deposit|وديعة|تأمين|ضمان/i;
     if (assetKeywords.test(trimmedName)) {
-      if (/cash|bank|نقد|بنك|card|visa|mastercard|حساب|جاري/.test(trimmedName)) return 'cash';
-      if (/customer|receivable|مدين|عملاء|debtor/.test(trimmedName)) return 'ar';
+      if (/tr\s*[-–—]|trade\s*receivable|customer|receivable|مدين|عملاء|debtor|corp|inc|llc|ltd|company|شركة/i.test(trimmedName)) return 'ar';
+      if (/cash|bank|نقد|بنك|card|visa|mastercard|حساب|جاري|refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) {
+        if (/refundable|deposit|وديعة|تأمين|ضمان/.test(trimmedName)) return 'other_ca';
+        return 'cash';
+      }
       if (/inventory|stock|مخزون|بضاعة|raw material|finished goods/.test(trimmedName)) return 'inventory';
       if (/prepaid|مقدم/.test(trimmedName)) return 'prepaid';
       if (/investment|استثمار|trading|تداول/.test(trimmedName)) return 'other_ca';
-      if (/land|building|machinery|equipment|furniture|vehicle|fixture|decoration|computer|أراضي|مباني|آلات|معدات|أثاث|سيارات|ديكور|حاسوب|fa\s*-\s*historical/.test(trimmedName)) return 'ppe';
-      if (/intangible|goodwill|patent|trademark|brand|غير ملموس|شهرة|براءة|علامة/.test(trimmedName)) return 'intangible';
+      if (/land|building|machinery|equipment|furniture|vehicle|fixture|decoration|computer|أراضي|مباني|آلات|معدات|أثاث|سيارات|ديكور|حاسوب|fa\s*[-–—]\s*historical|fixed\s*assets|pp&e/.test(trimmedName)) return 'ppe';
+      if (/intangible|goodwill|patent|trademark|brand|غير ملموس|شهرة|براءة|علامة|trade\s*mark|online/.test(trimmedName)) return 'intangible';
       return 'other_ca';
     }
     // Otherwise it's likely an expense
@@ -501,11 +507,11 @@ function classifyAccount(name, debit = 0, credit = 0) {
   const lowerName = trimmedName.toLowerCase();
   if (/revenue|sales|income|إيرادات|مبيعات|دخل/.test(trimmedName)) return 'revenue';
   if (/expense|cost|مصاريف|مصروفات|تكلفة/.test(trimmedName)) return 'other_expense';
+  if (/tr\s*[-–—]|receivable|مدين|عملاء|customer|corp|inc|llc/.test(trimmedName)) return 'ar';
   if (/asset|أصول|مخزون|نقد|بنك|استثمار|trading/.test(trimmedName)) return 'other_ca';
   if (/liability|payable|loan|قرض|دائن|مورد|التزام/.test(trimmedName)) return 'other_cl';
   if (/equity|capital|retained|reserve|ملكية|رأس|احتياطي|أرباح/.test(trimmedName)) return 'capital';
   
-  // Return empty if we really can't classify
   return '';
 }
 
