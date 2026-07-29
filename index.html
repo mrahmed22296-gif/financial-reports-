@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root{
     --ink:#16241C;
@@ -45,4 +44,355 @@
   header.hero::after{
     content:"";
     position:absolute; inset:auto 0 0 0; height:6px;
-    background: repeating
+    background: repeating-linear-gradient(90deg, var(--brass) 0 18px, transparent 18px 26px);
+    opacity:.5;
+  }
+  .hero-inner{ max-width:1080px; margin:0 auto; display:flex; gap:32px; align-items:center; flex-wrap:wrap; }
+  .hero-text{ flex:1 1 380px; min-width:280px;}
+  .eyebrow{ font-family:'Cairo',sans-serif; letter-spacing:.06em; font-size:13px; color:#C9D9C3; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+  .eyebrow::before{ content:""; width:22px; height:2px; background:var(--brass); display:inline-block;}
+  h1{ font-family:'Cairo',sans-serif; font-weight:900; font-size:clamp(28px,4vw,42px); margin:0 0 12px; line-height:1.25;}
+  .hero-sub{ font-size:16px; color:#DCE7D6; line-height:1.9; max-width:56ch;}
+  .hero-badges{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;}
+  .badge{ font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); padding:6px 12px; border-radius:100px;}
+
+  .scale-card{ background:rgba(255,255,255,0.05); border:1px solid rgba(201,217,195,0.25); border-radius:16px; padding:18px 22px; flex:0 0 300px; text-align:center;}
+  .scale-svg{ width:100%; max-width:260px; height:auto; margin-bottom:4px;}
+  #beamGroup{ transition: transform .5s cubic-bezier(.2,.9,.3,1.2); transform-origin: 150px 40px; }
+  .scale-status{ font-family:'Cairo',sans-serif; font-weight:800; font-size:15px; margin-top:6px;}
+  .scale-status.balanced{ color:#7FD9A8;}
+  .scale-status.off{ color:#F0A6A0;}
+  .scale-figures{ display:flex; justify-content:space-between; font-size:12px; color:#C9D9C3; margin-top:6px;}
+
+  main{ max-width:1080px; margin:0 auto; padding:34px 24px 80px;}
+  .card{ background:var(--card); border:1px solid var(--paper-line); border-radius:16px; box-shadow:var(--shadow); padding:24px; margin-bottom:28px;}
+  .card h2{ font-family:'Cairo',sans-serif; font-weight:800; font-size:20px; margin:0 0 4px; display:flex; align-items:center; gap:10px;}
+  .card h2 .idx{ font-family:'IBM Plex Mono',monospace; font-size:13px; background:var(--brass); color:#fff; padding:2px 9px; border-radius:6px;}
+  .card .hint{ color:var(--ink-soft); font-size:13.5px; margin:2px 0 18px;}
+
+  .upload-zone{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    background:var(--paper); border:2px dashed var(--brass); border-radius:14px;
+    padding:18px 22px; margin-bottom:18px; transition:.15s;
+  }
+  .upload-zone.dragover{ background:var(--emerald-soft); border-color:var(--emerald);}
+  .upload-icon{ font-size:28px;}
+  .upload-text{ flex:1 1 260px; display:flex; flex-direction:column; gap:2px;}
+  .upload-text b{ font-family:'Cairo',sans-serif; font-size:14.5px; color:var(--ink);}
+  .upload-text span{ font-size:12.5px; color:var(--ink-soft);}
+  .upload-status{ font-size:13px; margin:-8px 0 16px; min-height:18px; }
+  .upload-status.ok{ color:var(--emerald); font-weight:700;}
+  .upload-status.bad{ color:var(--signal); font-weight:700;}
+
+  table.tb-table{ width:100%; border-collapse:collapse; font-size:14.5px;}
+  table.tb-table th{ font-family:'Cairo',sans-serif; font-weight:700; text-align:right; padding:9px 8px; border-bottom:2px solid var(--brass); color:var(--ink); font-size:13px;}
+  table.tb-table td{ padding:7px 8px; border-bottom:1px solid var(--paper-line); vertical-align:middle;}
+  table.tb-table input[type=text]{
+    width:100%; border:none; background:transparent; font-family:'Tajawal',sans-serif; font-size:14.5px; padding:6px 4px; border-radius:6px;
+  }
+  table.tb-table input[type=number]{
+    width:100%; border:1px solid transparent; background:transparent; font-family:'IBM Plex Mono',monospace; direction:ltr; text-align:left; font-size:14px; padding:6px 6px; border-radius:6px;
+  }
+  table.tb-table select{
+    width:100%; border:1px solid var(--paper-line); background:var(--white); font-family:'Tajawal',sans-serif; font-size:13px; padding:6px 4px; border-radius:6px; color:var(--ink);
+  }
+  table.tb-table select.unclassified{ border-color:var(--signal); background:var(--signal-soft); color:var(--signal);}
+  table.tb-table input:focus{ outline:none; background:var(--white); border-color:var(--paper-line);}
+  table.tb-table tr:hover td{ background:rgba(169,120,46,0.05);}
+  .del-btn{ background:none; border:none; color:var(--signal); cursor:pointer; font-size:16px; padding:4px 8px; border-radius:8px;}
+  .del-btn:hover{ background:var(--signal-soft);}
+
+  .tb-tools{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
+  .btn{ font-family:'Cairo',sans-serif; font-weight:700; font-size:14px; border:none; border-radius:10px; padding:11px 18px; cursor:pointer; transition:.15s; display:inline-flex; align-items:center; gap:8px;}
+  .btn-ghost{ background:var(--white); color:var(--ink); border:1px solid var(--paper-line);}
+  .btn-ghost:hover{ background:var(--paper-deep);}
+  .btn-brass{ background:var(--brass); color:#fff;}
+  .btn-brass:hover{ background:var(--brass-dark);}
+  .btn-main{ background:var(--emerald); color:#fff; padding:13px 26px; font-size:15.5px; box-shadow:0 4px 14px rgba(47,122,82,.3);}
+  .btn-main:hover{ background:#256341;}
+  .btn-main:disabled{ background:#9AAF9E; cursor:not-allowed; box-shadow:none;}
+  .btn[disabled]{ opacity:.6; cursor:not-allowed;}
+
+  .tb-totals{ display:flex; gap:18px; margin-top:14px; flex-wrap:wrap;}
+  .tb-total-pill{ background:var(--paper-deep); border-radius:10px; padding:10px 16px; font-size:13.5px; display:flex; gap:8px; align-items:baseline;}
+  .tb-total-pill b{ font-family:'IBM Plex Mono',monospace; font-size:15px;}
+
+  .warn-box{ background:var(--signal-soft); border:1px solid #E7C3BF; color:#7A2A2A; border-radius:12px; padding:12px 16px; font-size:13.5px; margin-top:14px; display:none;}
+  .warn-box.show{ display:block;}
+
+  .gen-row{ display:flex; justify-content:flex-end; margin-top:20px;}
+
+  .loading{ display:none; align-items:center; gap:12px; padding:20px; font-family:'Cairo',sans-serif; color:var(--ink-soft);}
+  .loading.show{ display:flex;}
+  .spinner{ width:22px; height:22px; border:3px solid var(--paper-line); border-top-color:var(--emerald); border-radius:50%; animation:spin 0.8s linear infinite;}
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  .error-box{ display:none; background:var(--signal-soft); border:1px solid #E7C3BF; color:#7A2A2A; border-radius:12px; padding:16px; margin-bottom:20px; font-size:14px; line-height:1.8;}
+  .error-box.show{ display:block;}
+
+  #results{ display:none;}
+  #results.show{ display:block;}
+
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:0; border-bottom:2px solid var(--paper-line); padding-bottom:0;}
+  .tab-btn{ font-family:'Cairo',sans-serif; font-weight:700; font-size:14px; background:none; border:none; padding:12px 18px; cursor:pointer; color:var(--ink-soft); border-bottom:3px solid transparent; margin-bottom:-2px; transition:.15s;}
+  .tab-btn:hover{ color:var(--ink);}
+  .tab-btn.active{ color:var(--brass-dark); border-bottom-color:var(--brass);}
+  .tab-panel{ display:none; padding-top:22px;}
+  .tab-panel.active{ display:block;}
+
+  .stmt-section-title{ font-family:'Cairo',sans-serif; font-weight:800; font-size:15px; color:var(--brass-dark); margin:22px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--paper-line);}
+  .stmt-section-title:first-child{ margin-top:0;}
+  table.stmt-table{ width:100%; border-collapse:collapse; font-size:14.5px; margin-bottom:6px;}
+  table.stmt-table td{ padding:8px 6px; border-bottom:1px dashed var(--paper-line);}
+  table.stmt-table td:last-child{ text-align:left; width:180px;}
+  tr.subtotal td{ font-weight:800; border-top:1px solid var(--ink-soft); border-bottom:2px double var(--ink-soft); background:rgba(169,120,46,0.06);}
+  tr.grandtotal td{ font-weight:900; font-size:16px; color:var(--emerald); border-top:2px solid var(--emerald); border-bottom:3px double var(--emerald); background:var(--emerald-soft);}
+  tr.negative td.num{ color:var(--signal);}
+
+  .balance-check-pill{ display:inline-flex; align-items:center; gap:8px; font-family:'Cairo',sans-serif; font-weight:700; font-size:13.5px; padding:8px 14px; border-radius:100px; margin-bottom:14px;}
+  .balance-check-pill.ok{ background:var(--emerald-soft); color:var(--emerald);}
+  .balance-check-pill.bad{ background:var(--signal-soft); color:var(--signal);}
+
+  .notes-list{ display:flex; flex-direction:column; gap:16px;}
+  .note-item{ border-right:4px solid var(--brass); background:var(--paper); border-radius:8px; padding:14px 18px;}
+  .note-item h3{ font-family:'Cairo',sans-serif; font-size:15px; margin:0 0 6px; color:var(--ink);}
+  .note-item p{ margin:0; font-size:14px; line-height:1.9; color:var(--ink-soft);}
+
+  .ratio-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-bottom:20px;}
+  .ratio-card{ background:var(--paper); border:1px solid var(--paper-line); border-radius:12px; padding:14px 16px;}
+  .ratio-card .rname{ font-family:'Cairo',sans-serif; font-weight:700; font-size:13px; color:var(--ink-soft); margin-bottom:4px;}
+  .ratio-card .rvalue{ font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; color:var(--emerald); direction:ltr; text-align:right;}
+  .ratio-card .rinterp{ font-size:12.5px; color:var(--ink-soft); margin-top:6px; line-height:1.7;}
+
+  .bullet-list{ margin:0; padding-right:20px; line-height:2; font-size:14px; color:var(--ink-soft);}
+  .bullet-list.flag li{ color:#7A2A2A;}
+
+  footer{ text-align:center; padding:26px; color:var(--ink-soft); font-size:12.5px;}
+
+  @media print{
+    header.hero, .tb-tools, .gen-row, .tabs{ display:none !important;}
+    .tab-panel{ display:block !important; page-break-inside:avoid;}
+    body{ background:#fff;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="hero-text">
+      <div class="eyebrow">CPA · CFA · IFRS / GAAP</div>
+      <h1>من ميزان المراجعة إلى القوائم المالية الكاملة</h1>
+      <p class="hero-sub">أدخل حسابات ميزان المراجعة في الجدول أدناه — ثم دع المحلل المالي الآلي يستخرج قائمة الدخل، والمركز المالي، والتدفقات النقدية، والإيضاحات، والتقرير التحليلي، طبقاً للمعايير المحاسبية المعتمدة.</p>
+      <div class="hero-badges">
+        <span class="badge">قائمة الدخل</span>
+        <span class="badge">المركز المالي</span>
+        <span class="badge">التدفقات النقدية</span>
+        <span class="badge">الإيضاحات</span>
+        <span class="badge">تحليل نسبي</span>
+      </div>
+    </div>
+    <div class="scale-card">
+      <svg class="scale-svg" viewBox="0 0 300 190">
+        <line x1="150" y1="178" x2="150" y2="46" stroke="#A9782E" stroke-width="5"/>
+        <circle cx="150" cy="44" r="5.5" fill="#A9782E"/>
+        <rect x="112" y="176" width="76" height="10" rx="3" fill="#A9782E"/>
+        <g id="beamGroup">
+          <line x1="55" y1="40" x2="245" y2="40" stroke="#EAF0E6" stroke-width="4.5"/>
+          <line x1="60" y1="40" x2="60" y2="78" stroke="#EAF0E6" stroke-width="2"/>
+          <path id="leftPan" d="M38,78 Q60,104 82,78" fill="none" stroke="#EAF0E6" stroke-width="2.5"/>
+          <line x1="240" y1="40" x2="240" y2="78" stroke="#EAF0E6" stroke-width="2"/>
+          <path id="rightPan" d="M218,78 Q240,104 262,78" fill="none" stroke="#EAF0E6" stroke-width="2.5"/>
+        </g>
+      </svg>
+      <div class="scale-status balanced" id="scaleStatus">متوازن ✓</div>
+      <div class="scale-figures">
+        <span>مدين: <b class="num" id="dbgTotal">0</b></span>
+        <span>دائن: <b class="num" id="crTotal">0</b></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section class="card">
+    <h2><span class="idx">١</span> ميزان المراجعة</h2>
+    <p class="hint">ارفع ملف إكسل يحتوي ميزان المراجعة، أو عدّل مباشرة على الجدول التجريبي أدناه.</p>
+
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" hidden>
+      <div class="upload-icon">📤</div>
+      <div class="upload-text">
+        <b>اسحب ملف الإكسل هنا أو انقر للاختيار</b>
+        <span>يدعم .xlsx / .xls / .csv — يكتشف تلقائياً أعمدة اسم الحساب والمدين والدائن</span>
+      </div>
+      <button class="btn btn-brass" type="button">اختيار ملف</button>
+    </div>
+    <div class="upload-status" id="uploadStatus"></div>
+
+    <table class="tb-table" id="tbTable">
+      <thead>
+        <tr>
+          <th style="width:34px;">#</th>
+          <th>اسم الحساب</th>
+          <th style="width:130px;">مدين</th>
+          <th style="width:130px;">دائن</th>
+          <th style="width:190px;">التصنيف المحاسبي</th>
+          <th style="width:40px;"></th>
+        </tr>
+      </thead>
+      <tbody id="tbBody"></tbody>
+    </table>
+
+    <div class="tb-tools">
+      <button class="btn btn-brass" onclick="addRow()">＋ إضافة حساب</button>
+      <button class="btn btn-ghost" onclick="autoClassifyAll()">🏷 تصنيف تلقائي للحسابات</button>
+      <button class="btn btn-ghost" onclick="loadSample()">↺ إعادة تحميل المثال</button>
+      <button class="btn btn-ghost" onclick="clearAll()">🗑 مسح الكل</button>
+    </div>
+
+    <div class="tb-totals">
+      <div class="tb-total-pill">إجمالي المدين: <b class="num" id="pillDebit">0</b></div>
+      <div class="tb-total-pill">إجمالي الدائن: <b class="num" id="pillCredit">0</b></div>
+      <div class="tb-total-pill">الفرق: <b class="num" id="pillDiff">0</b></div>
+    </div>
+
+    <div class="warn-box" id="unbalancedWarn">⚠ ميزان المراجعة غير متوازن حالياً. يمكنك المتابعة على أي حال — سيُشار إلى ذلك صراحة في التقرير التحليلي.</div>
+    <div class="warn-box" id="unclassifiedWarn">⚠ توجد حسابات غير مصنفة (محددة باللون الأحمر في عمود التصنيف). صنّفها يدوياً أو اضغط "تصنيف تلقائي للحسابات" قبل التوليد.</div>
+
+    <div class="gen-row">
+      <button class="btn btn-main" id="genBtn" onclick="generateStatements()">⚡ توليد القوائم المالية الكاملة</button>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </section>
+
+  <section id="results">
+    <div class="card">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="income">قائمة الدخل</button>
+        <button class="tab-btn" data-tab="balance">المركز المالي</button>
+        <button class="tab-btn" data-tab="cashflow">التدفقات النقدية</button>
+        <button class="tab-btn" data-tab="notes">الإيضاحات</button>
+        <button class="tab-btn" data-tab="analysis">التقرير التحليلي</button>
+      </div>
+
+      <div class="tab-panel active" id="panel-income"></div>
+      <div class="tab-panel" id="panel-balance"></div>
+      <div class="tab-panel" id="panel-cashflow"></div>
+      <div class="tab-panel" id="panel-notes"></div>
+      <div class="tab-panel" id="panel-analysis"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>مولد القوائم المالية — أداة مساعدة للتحليل الأولي، ولا تُغني عن مراجعة محاسب قانوني معتمد قبل الاعتماد النهائي.</footer>
+
+<script>
+let rows = [];
+let rowIdCounter = 0;
+
+const CATEGORY_GROUPS = [
+  {label:'الأصول المتداولة', opts:[
+    ['cash','نقدية وما يعادلها'],
+    ['ar','حسابات مدينة (عملاء)'],
+    ['prepaid_to_supplier','دفعات مقدمة للموردين'],
+    ['inventory','مخزون'],
+    ['prepaid','مصروفات مدفوعة مقدماً'],
+    ['other_ca','أصول متداولة أخرى'],
+  ]},
+  {label:'الأصول غير المتداولة', opts:[
+    ['ppe','أصول ثابتة (بالتكلفة)'],
+    ['accum_dep','مجمع إهلاك (مخصوم من الأصول الثابتة)'],
+    ['intangible','أصول غير ملموسة'],
+    ['other_nca','أصول غير متداولة أخرى'],
+  ]},
+  {label:'الالتزامات المتداولة', opts:[
+    ['ap','حسابات دائنة (موردون)'],
+    ['accrued','مصروفات مستحقة'],
+    ['st_loan','قروض قصيرة الأجل'],
+    ['other_cl','التزامات متداولة أخرى'],
+  ]},
+  {label:'الالتزامات غير المتداولة', opts:[
+    ['lt_loan','قروض طويلة الأجل'],
+    ['eosb','مكافأة نهاية الخدمة'],
+    ['other_ncl','التزامات غير متداولة أخرى'],
+  ]},
+  {label:'حقوق الملكية', opts:[
+    ['capital','رأس المال'],
+    ['reserves','احتياطيات'],
+    ['retained','أرباح مبقاة (رصيد أول المدة)'],
+    ['dividends','توزيعات أرباح (مخصومة من حقوق الملكية)'],
+  ]},
+  {label:'الإيرادات', opts:[
+    ['revenue','إيرادات / مبيعات'],
+    ['other_income','إيرادات أخرى'],
+  ]},
+  {label:'المصروفات', opts:[
+    ['cogs','تكلفة المبيعات'],
+    ['sga','مصاريف بيعية وتسويقية وعمومية وإدارية'],
+    ['depreciation','إهلاك واستهلاك'],
+    ['finance_cost','مصاريف تمويلية (فوائد)'],
+    ['tax','ضريبة / زكاة'],
+    ['other_expense','مصاريف أخرى'],
+  ]},
+];
+
+// نضيف التصنيف الجديد إلى DEBIT_NATURE
+const DEBIT_NATURE = new Set([
+  'cash','ar','prepaid_to_supplier','inventory','prepaid','other_ca',
+  'ppe','intangible','other_nca',
+  'cogs','sga','depreciation','finance_cost','tax','other_expense','dividends'
+]);
+
+// ====== SYSTEME DE CLASSIFICATION AMÉLIORÉ ======
+const CLASSIFY_RULES = [
+  // ---- PRIORITÉ 1 : COMPTES FOURNISSEURS (avec distinction selon solde) ----
+  // D'abord on détecte les comptes fournisseurs, mais on ajustera selon le solde plus tard
+  [/^(TP|tp)\s*[-–—]\s*/i, 'supplier_account'],
+  [/(?:supplier|vendor|fournisseur|مورد|دائن|حسابات\s*دائنة|ذمم\s*دائنة|creditor|payable)\s*(?!.*(?:prepaid|advance|مقدم|دفعة\s*مقدمة))/i, 'supplier_account'],
+  
+  // ---- COMPTES CLIENTS (AR) ----
+  [/^TR\s*[-–—]\s*/i, 'ar'],
+  [/(?:customer|client|client|عميل|receivable|debiteur|مدين|ذمم\s*مدينة|حسابات\s*مدينة|عملاء|debtor|receivable)\s*(?!.*(?:supplier|fournisseur|مورد))/i, 'ar'],
+  
+  // ---- AUTRES COMPTES ----
+  [/مجمع\s*إهلاك|accum(ulated)?\s*dep|accumulated\s*amort/i, 'accum_dep'],
+  [/إهلاك|استهلاك|depreciation|amorti[sz]ation|اهلاك|depr\.?|amort\.?/i, 'depreciation'],
+  [/نقدية|نقد|صندوق|بنك|cash|bank|visa|mastercard|knet|حساب\s*جاري|شيكات|card|current\s*account/i, 'cash'],
+  [/مخزون|inventory|stock|بضاعة|مواد\s*خام|raw\s*material|finished\s*goods|merchandise/i, 'inventory'],
+  [/مقدم|مقدماً|prepaid|مصروفات\s*مقدمة|مصروف\s*مقدم|تأمين\s*مقدم|prepayments?|prepaid\s*expenses?/i, 'prepaid'],
+  [/أراضي|مبان|مبنى|آلات|معدات|أثاث|سيارات|land|building|machinery|equipment|furniture|vehicle|property|plant|أصول\s*ثابتة|fa\s*[-–—]\s*historical|fixed\s*assets|pp&e|decoration|ديكور|computer|حاسوب|furniture\s*&\s*fixtures/i, 'ppe'],
+  [/غير ملموس|شهرة|براءة|intangible|goodwill|patent|trademark|copyright|licenses?|franchise|trade\s*mark|online/i, 'intangible'],
+  [/مستحق|accrued|مصروفات\s*مستحقة|مستحقات\s*موظفين|accruals?|accrued\s*expenses?/i, 'accrued'],
+  [/قرض.*قصير|short.?term loan|سلف\s*قصيرة|قروض\s*قصيرة|short\s*term\s*borrowings|current\s*portion/i, 'st_loan'],
+  [/قرض.*طويل|long.?term loan|قروض\s*طويلة|سلف\s*طويلة|long\s*term\s*borrowings|long\s*term\s*debt|notes\s*payable/i, 'lt_loan'],
+  [/مكافأة|نهاية الخدمة|end of service|gratuity|تعويضات\s*نهاية\s*خدمة|employee\s*benefits|pension|provident/i, 'eosb'],
+  [/رأس المال|capital stock|share capital|رأس\s*مال|اسهم\s*رأسمالية|common\s*stock|preferred\s*stock|paid-up\s*capital/i, 'capital'],
+  [/احتياطي|reserve|احتياطيات|احتياطي\s*قانوني|legal\s*reserve|statutory\s*reserve/i, 'reserves'],
+  [/أرباح مبقاة|retained earnings|ارباح\s*محتجزة|retained\s*earnings|accumulated\s*profits|undistributed\s*profits/i, 'retained'],
+  [/توزيعات|dividends?|ارباح\s*موزعة|توزيع\s*ارباح|cash\s*dividend|stock\s*dividend/i, 'dividends'],
+  [/\b(?:revenue|sales|مبيعات|إيرادات|ايرادات\s*تشغيلية|دخل\s*تشغيلي|operating\s*revenue|service\s*revenue|turnover|income\s*from\s*operations)(?!\s*[-–—]\s*[A-Z])/i, 'revenue'],
+  [/إيرادات أخرى|other income|non-operating\s*income|investment\s*income|interest\s*income|rental\s*income|gain\s*on\s*sale|dividend\s*income/i, 'other_income'],
+  [/تكلفة المبيعات|cost of (goods|sales)|cogs|تكلفة\s*البضاعة|مشتريات|direct\s*cost|cost\s*of\s*sales|purchases|freight\s*in/i, 'cogs'],
+  [/تمويل|فوائد|فائدة|interest expense|finance cost|مصاريف\s*تمويلية|bank\s*charges|loan\s*interest|borrowing\s*cost/i, 'finance_cost'],
+  [/ضريبة|زكاة|tax|zakat|ضريبة\s*القيمة\s*المضافة|ضريبة\s*الدخل|income\s*tax|sales\s*tax|vat|corporate\s*tax/i, 'tax'],
+  [/مصاريف أخرى|other expense|مصروفات\s*متفرقة|خسائر\s*تشغيلية|miscellaneous\s*expense|sundry\s*expense|general\s*expense|non-operating\s*expense/i, 'other_expense'],
+  [/بيعي|تسويق|إداري|عمومي|selling|marketing|admin|general expense|sga|selling\s*expenses?|administrative\s*expenses?|marketing\s*expenses?|salaries?|wages?|rent\s*expense|utilities|office\s*supplies|travel\s*expense|professional\s*fees|insurance\s*expense|maintenance|repairs|advertising|promotion|commission|brokerage|sales\s*expense/i, 'sga'],
+];
+
+function classifyAccount(name, debit = 0, credit = 0) {
+  if (!name || typeof name !== 'string') return '';
+  const trimmedName = name.trim();
+  
+  // ---- ÉTAPE 1 : RECHERCHE PAR MOTS-CLÉS ----
+  let bestMatch = '';
+  let bestScore = 0;
+  
+  for (const [regex, category] of CLASSIFY_RULES) {
+    if (regex.test(trimmedName)) {
+      const match = trimmedName.match(regex);
+      if (match) {
+        const
