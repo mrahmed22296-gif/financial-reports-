@@ -439,11 +439,14 @@ var CATEGORY_GROUPS = [
 ];
 
 var DEBIT_NATURE = new Set([
+  // أصول ومصروفات وبنود مدينة بطبيعتها
   'cash','ar','prepaid_to_supplier','inventory','prepaid','other_ca',
-  'ppe','intangible','other_nca','accum_dep','accum_amort',
+  'ppe','intangible','other_nca',
   'cogs','sga','depreciation','finance_cost','tax','other_expense',
   'dividends','related_party','refundable_deposit','trading_investment',
-  'related_party_payable','leave_provision','deferred_finance'
+  'deferred_finance'
+  // ملاحظة: accum_dep و accum_amort و related_party_payable و leave_provision
+  // ذات طبيعة دائنة (contra / التزام) — لا تُدرج هنا حتى يكون netAmount = credit - debit موجباً
 ]);
 
 // ====== نظام تصنيف متطور ======
@@ -479,9 +482,9 @@ var CLASSIFY_RULES = [
   { regex: /(?:مجمع\s*(?:الاستهلاك|الإهلاك|اهلاك)|accumulated\s*depreciation|\bFA\s*[-–—]\s*Accum)/i, category: 'accum_dep', priority: 96 },
   { regex: /^1213\d+/, category: 'accum_dep', priority: 90 },
 
-  // غير ملموسة ومجمع إطفاء
-  { regex: /(?:أصول\s*غير\s*ملموسة|شهرة|علامة\s*تجارية|براءة|برمجيات|موقع|website|trade\s*mark|trademark|intangible|goodwill)/i, category: 'intangible', priority: 90 },
-  { regex: /(?:مجمع\s*(?:الإطفاء|الاطفاء|اطفاءات)|accumulated\s*amortization)/i, category: 'accum_amort', priority: 94 },
+  // غير ملموسة ومجمع إطفاء (أولوية أعلى من FA Historical حتى لا تُصنَّف كأصول ثابتة)
+  { regex: /(?:Trade\s*Mark|Trademark|Website|Programs?\s*&?\s*online|أصول\s*غير\s*ملموسة|شهرة|علامة\s*تجارية|براءة|برمجيات|موقع|website|intangible|goodwill)/i, category: 'intangible', priority: 97 },
+  { regex: /(?:Accumulated\s*Amortization|مجمع\s*(?:الإطفاء|الاطفاء|اطفاءات)|amortization)/i, category: 'accum_amort', priority: 97 },
 
   // دائنون / موردون
   { regex: /(?:دائنون|موردون|ذمم\s*دائنة|حسابات\s*دائنة|accounts?\s*payable|trade\s*payable|supplier|vendor|\bAP\b|\bTP\s*[-–—])/i, category: 'ap', priority: 95 },
