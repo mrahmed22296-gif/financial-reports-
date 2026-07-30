@@ -329,7 +329,7 @@
 
   <section class="card">
     <h2><span class="idx">١</span> ميزان المراجعة</h2>
-    <p class="hint">ارفع ملف إكسل يحتوي ميزان المراجعة، أو عدّل مباشرة على الجدول التجريبي أدناه. للحصول على تقرير شهر واحد فقط: استخدم ميزان مراجعة بحركة ذلك الشهر (مدين/دائن للفترة) وليس الرصيد التراكمي من بداية السنة.</p>
+    <p class="hint">ارفع ملف إكسل يحتوي ميزان المراجعة، أو عدّل مباشرة على الجدول التجريبي أدناه. لاحتساب الشهر فقط: يفضّل ملف يحتوي رصيد أول المدة + الرصيد النهائي (يُحسب تلقائياً: النهائي − أول المدة)، أو أعمدة حركة الفترة مباشرة.</p>
 
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" hidden>
@@ -977,14 +977,12 @@ function parseNum(v){
 
 function detectColumns(json){
   var nameRe = /account\s*name|account|acct|اسم\s*الحساب|الحساب|اسم|بيان|البيان|description|name|الباب|رقم\s*الحساب/i;
-  // أعمدة حركة الفترة (الشهر) — أولوية أعلى
-  var periodDebitRe = /(?:period|month|حركة|الفترة|الشهر|activity|movement).*(?:debit|مدين)|(?:debit|مدين).*(?:period|month|حركة|الفترة|الشهر)|^(?:debit|مدين)$/i;
-  var periodCreditRe = /(?:period|month|حركة|الفترة|الشهر|activity|movement).*(?:credit|دائن)|(?:credit|دائن).*(?:period|month|حركة|الفترة|الشهر)|^(?:credit|دائن)$/i;
   var debitRe = /debit|^dr$|مدين|مدينة|debtor/i;
   var creditRe = /credit|^cr$|دائن|دائنة|creditor/i;
-  var endBalRe = /end\s*balance|closing|رصيد\s*(?:نهائي|ختامي|آخر)|ending/i;
-  var openBalRe = /open(?:ing)?|initial|begin|رصيد\s*(?:افتتاح|أول)|opening/i;
-  var balanceRe = /balance|رصيد/i;
+  var endRe = /end\s*balance|ending|closing|رصيد\s*(?:نهائي|ختامي|آخر|الإقفال)|نهائي|ختامي/i;
+  var openRe = /open(?:ing)?|initial|begin(?:ning)?|رصيد\s*(?:افتتاح|أول|ابتدائي)|افتتاح|أول\s*المدة|ابتدائي/i;
+  var periodRe = /period|month|حركة|الفترة|الشهر|activity|movement|خلال\s*الفترة|الحركة/i;
+  var balRe = /balance|رصيد/i;
   var maxScan = Math.min(40, json.length);
   var best = null;
   var bestScore = -1;
@@ -994,137 +992,219 @@ function detectColumns(json){
     if (row.every(function(c) { return !c; })) continue;
 
     var nameIdx = -1;
-    var debitCandidates = [];
-    var creditCandidates = [];
-    var balIdx = -1;
+    var cols = []; // {idx, label, kind: open|end|period|plain, side: debit|credit|balance}
 
     for (var j = 0; j < row.length; j++) {
       var cell = row[j];
       if (!cell) continue;
       if (nameIdx < 0 && nameRe.test(cell)) nameIdx = j;
 
-      var isEnd = endBalRe.test(cell);
-      var isOpen = openBalRe.test(cell);
-      var isPeriod = /period|month|حركة|الفترة|الشهر|activity|movement/i.test(cell);
+      var isDebit = debitRe.test(cell);
+      var isCredit = creditRe.test(cell);
+      var isEnd = endRe.test(cell);
+      var isOpen = openRe.test(cell);
+      var isPeriod = periodRe.test(cell);
+      var isBal = balRe.test(cell) && !isDebit && !isCredit;
 
-      if (debitRe.test(cell)) {
-        var dScore = 10;
-        if (isPeriod) dScore += 20;
-        if (isEnd) dScore -= 15;
-        if (isOpen) dScore -= 12;
-        // عمود مدين بسيط بدون كلمات إضافية
-        if (/^(debit|مدين|dr)$/i.test(cell)) dScore += 8;
-        debitCandidates.push({ idx: j, score: dScore, label: cell });
+      if (isDebit || isCredit || isBal) {
+        var kind = isPeriod ? 'period' : (isEnd ? 'end' : (isOpen ? 'open' : 'plain'));
+        var side = isDebit ? 'debit' : (isCredit ? 'credit' : 'balance');
+        cols.push({ idx: j, label: cell, kind: kind, side: side });
       }
-      if (creditRe.test(cell)) {
-        var cScore = 10;
-        if (isPeriod) cScore += 20;
-        if (isEnd) cScore -= 15;
-        if (isOpen) cScore -= 12;
-        if (/^(credit|دائن|cr)$/i.test(cell)) cScore += 8;
-        creditCandidates.push({ idx: j, score: cScore, label: cell });
-      }
-      if (balanceRe.test(cell) && !debitRe.test(cell) && !creditRe.test(cell)) balIdx = j;
     }
 
-    debitCandidates.sort(function(a, b) { return b.score - a.score; });
-    creditCandidates.sort(function(a, b) { return b.score - a.score; });
-    var debitIdx = debitCandidates.length ? debitCandidates[0].idx : -1;
-    var creditIdx = creditCandidates.length ? creditCandidates[0].idx : -1;
+    function findCol(kind, side) {
+      for (var k = 0; k < cols.length; k++) {
+        if (cols[k].kind === kind && cols[k].side === side) return cols[k];
+      }
+      return null;
+    }
+    function findAny(side, preferKinds) {
+      for (var p = 0; p < preferKinds.length; p++) {
+        var c = findCol(preferKinds[p], side);
+        if (c) return c;
+      }
+      return null;
+    }
+
+    var periodDr = findCol('period', 'debit');
+    var periodCr = findCol('period', 'credit');
+    var openDr = findCol('open', 'debit');
+    var openCr = findCol('open', 'credit');
+    var openBal = findCol('open', 'balance');
+    var endDr = findCol('end', 'debit');
+    var endCr = findCol('end', 'credit');
+    var endBal = findCol('end', 'balance');
+    // أعمدة عامة
+    var plainDr = findCol('plain', 'debit') || findAny('debit', ['plain', 'period', 'end']);
+    var plainCr = findCol('plain', 'credit') || findAny('credit', ['plain', 'period', 'end']);
+    // رصيد واحد بدون تمييز
+    var anyBal = null;
+    for (var k = 0; k < cols.length; k++) {
+      if (cols[k].side === 'balance') { anyBal = cols[k]; break; }
+    }
 
     var score = 0;
-    if (nameIdx > -1) score += 3;
-    if (debitIdx > -1) score += 2 + (debitCandidates[0] ? Math.max(0, debitCandidates[0].score) / 10 : 0);
-    if (creditIdx > -1) score += 2 + (creditCandidates[0] ? Math.max(0, creditCandidates[0].score) / 10 : 0);
-    if (balIdx > -1) score += 0.5;
+    if (nameIdx > -1) score += 5;
+    if (periodDr || periodCr) score += 25;
+    if ((openDr || openCr || openBal) && (endDr || endCr || endBal)) score += 30;
+    if (plainDr || plainCr) score += 8;
+    if (endDr || endCr || endBal) score += 4;
+    if (openDr || openCr || openBal) score += 4;
 
-    if (score >= 3 && i + 1 < json.length) {
+    if (score >= 5 && i + 1 < json.length) {
       var next = json[i + 1] || [];
       var hasNum = next.some(function(c) {
         return typeof c === 'number' || (c && /^-?[\d,.\s()]+$/.test(String(c).trim()) && parseNum(c) !== 0);
       });
-      if (hasNum) score += 2;
+      if (hasNum) score += 3;
     }
 
-    if (score > bestScore && nameIdx > -1 && (debitIdx > -1 || creditIdx > -1 || balIdx > -1)) {
+    if (score > bestScore && nameIdx > -1) {
       bestScore = score;
       best = {
         headerRowIdx: i,
         nameIdx: nameIdx,
-        debitIdx: debitIdx,
-        creditIdx: creditIdx,
-        balIdx: balIdx,
-        debitLabel: debitCandidates[0] ? debitCandidates[0].label : '',
-        creditLabel: creditCandidates[0] ? creditCandidates[0].label : ''
+        periodDebitIdx: periodDr ? periodDr.idx : -1,
+        periodCreditIdx: periodCr ? periodCr.idx : -1,
+        openDebitIdx: openDr ? openDr.idx : -1,
+        openCreditIdx: openCr ? openCr.idx : -1,
+        openBalIdx: openBal ? openBal.idx : -1,
+        endDebitIdx: endDr ? endDr.idx : -1,
+        endCreditIdx: endCr ? endCr.idx : -1,
+        endBalIdx: endBal ? endBal.idx : -1,
+        debitIdx: plainDr ? plainDr.idx : -1,
+        creditIdx: plainCr ? plainCr.idx : -1,
+        balIdx: anyBal ? anyBal.idx : -1,
+        labels: {
+          periodDr: periodDr ? periodDr.label : '',
+          periodCr: periodCr ? periodCr.label : '',
+          openDr: openDr ? openDr.label : '',
+          openCr: openCr ? openCr.label : '',
+          openBal: openBal ? openBal.label : '',
+          endDr: endDr ? endDr.label : '',
+          endCr: endCr ? endCr.label : '',
+          endBal: endBal ? endBal.label : ''
+        }
       };
     }
   }
 
   if (best) return best;
-
-  for (var i = 0; i < maxScan; i++) {
-    var row = (json[i] || []).map(function(c) { return String(c == null ? '' : c).trim(); });
-    var hasEnd = row.some(function(c) { return /End Balance|رصيد\s*(?:نهائي|ختامي|آخر)/i.test(c); });
-    if (!hasEnd) continue;
-    var debitIdx = row.findIndex(function(c) { return /Debit|مدين/i.test(c) && !/End|Initial|Open/i.test(c); });
-    var creditIdx = row.findIndex(function(c) { return /Credit|دائن/i.test(c) && !/End|Initial|Open/i.test(c); });
-    var nameIdx = row.findIndex(function(c) { return nameRe.test(c); });
-    if (debitIdx > -1 || creditIdx > -1) {
-      return { headerRowIdx: i, nameIdx: nameIdx > -1 ? nameIdx : 1, debitIdx: debitIdx, creditIdx: creditIdx, balIdx: -1 };
-    }
-  }
-
-  return { headerRowIdx: 0, nameIdx: 1, debitIdx: 2, creditIdx: 3, balIdx: -1 };
+  return {
+    headerRowIdx: 0, nameIdx: 1,
+    periodDebitIdx: -1, periodCreditIdx: -1,
+    openDebitIdx: -1, openCreditIdx: -1, openBalIdx: -1,
+    endDebitIdx: -1, endCreditIdx: -1, endBalIdx: -1,
+    debitIdx: 2, creditIdx: 3, balIdx: -1, labels: {}
+  };
 }
 
 function handleWorkbookData(json){
   var cols = detectColumns(json);
   var headerRowIdx = cols.headerRowIdx;
   var nameIdx = cols.nameIdx;
-  var debitIdx = cols.debitIdx;
-  var creditIdx = cols.creditIdx;
-  var balIdx = cols.balIdx != null ? cols.balIdx : -1;
   var totalRe = /^(total|grand total|الإجمالي|إجمالي|اجمالي|المجموع|الاجمالي|الميزان|مجموع|المجموع العام|Total|صافي|net\s*total)/i;
   var skipRe = /^(page|صفحة|sheet|تقرير|ميزان\s*المراجعة|trial\s*balance|company|شركة)/i;
   var newRows = [];
+  var mode = 'unknown'; // period | difference | plain
+
+  function cellNum(r, idx) {
+    if (idx == null || idx < 0 || idx >= r.length) return 0;
+    return parseNum(r[idx]);
+  }
+
+  // صافي رصيد من عمودي مدين/دائن أو من رصيد مفرد (موجب=مدين، سالب=دائن)
+  function netFromPair(r, drIdx, crIdx, balIdx) {
+    var dr = cellNum(r, drIdx);
+    var cr = cellNum(r, crIdx);
+    if (dr !== 0 || cr !== 0) return dr - cr;
+    if (balIdx != null && balIdx >= 0) return cellNum(r, balIdx);
+    return 0;
+  }
+
+  var hasPeriod = cols.periodDebitIdx > -1 || cols.periodCreditIdx > -1;
+  var hasOpen = cols.openDebitIdx > -1 || cols.openCreditIdx > -1 || cols.openBalIdx > -1;
+  var hasEnd = cols.endDebitIdx > -1 || cols.endCreditIdx > -1 || cols.endBalIdx > -1;
+  var canDiff = hasOpen && hasEnd;
 
   for (var i = headerRowIdx + 1; i < json.length; i++) {
     var r = json[i];
     if (!r || r.length === 0) continue;
     var name = String((r && r[nameIdx]) != null ? r[nameIdx] : '').trim();
     if (!name || totalRe.test(name) || skipRe.test(name) || name.length < 2) continue;
-    // تجاهل أرقام الحسابات فقط بدون اسم
     if (/^[0-9.\-\/]+$/.test(name) && name.length < 12) continue;
 
-    var debit = (debitIdx > -1 && debitIdx < r.length) ? parseNum(r[debitIdx]) : 0;
-    var credit = (creditIdx > -1 && creditIdx < r.length) ? parseNum(r[creditIdx]) : 0;
+    var debit = 0;
+    var credit = 0;
 
-    // إذا لم يوجد مدين/دائن واستخدم عمود الرصيد
-    if (debit === 0 && credit === 0 && balIdx > -1 && balIdx < r.length) {
-      var bal = parseNum(r[balIdx]);
-      if (bal > 0) debit = bal;
-      else if (bal < 0) credit = Math.abs(bal);
+    if (hasPeriod) {
+      // أولوية: أعمدة حركة الفترة/الشهر مباشرة
+      debit = cellNum(r, cols.periodDebitIdx);
+      credit = cellNum(r, cols.periodCreditIdx);
+      mode = 'period';
+    } else if (canDiff) {
+      // حركة الشهر = الرصيد النهائي − رصيد أول المدة
+      var openNet = netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
+      var endNet = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx);
+      var movement = endNet - openNet;
+      // movement > 0 زيادة مدينة، < 0 زيادة دائنة
+      if (movement > 0.00001) {
+        debit = movement;
+        credit = 0;
+      } else if (movement < -0.00001) {
+        debit = 0;
+        credit = Math.abs(movement);
+      } else {
+        debit = 0;
+        credit = 0;
+      }
+      mode = 'difference';
+    } else {
+      // افتراضي: أعمدة مدين/دائن العامة أو الرصيد
+      debit = cellNum(r, cols.debitIdx);
+      credit = cellNum(r, cols.creditIdx);
+      if (debit === 0 && credit === 0 && cols.balIdx > -1) {
+        var bal = cellNum(r, cols.balIdx);
+        if (bal > 0) debit = bal;
+        else if (bal < 0) credit = Math.abs(bal);
+      }
+      // إن وُجد رصيد ختامي فقط بدون افتتاحي نستخدمه كما هو (تنبيه لاحقاً)
+      if (debit === 0 && credit === 0 && hasEnd) {
+        var endOnly = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx);
+        if (endOnly > 0) debit = endOnly;
+        else if (endOnly < 0) credit = Math.abs(endOnly);
+        mode = 'end_only';
+      } else {
+        mode = 'plain';
+      }
     }
 
-    if (debit === 0 && credit === 0) continue;
+    if (Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001) continue;
 
     var cat = classifyAccount(name, debit, credit);
     newRows.push({ id: rowIdCounter++, name: name, debit: debit, credit: credit, cat: cat });
   }
 
   if (newRows.length === 0) {
-    showUploadStatus('لم يتم العثور على صفوف صالحة في الملف. تأكد أن الملف يحتوي أعمدة: اسم الحساب، مدين، دائن.', false);
+    showUploadStatus('لم يتم العثور على صفوف صالحة في الملف. تأكد أن الملف يحتوي أعمدة: اسم الحساب، ومدين/دائن أو رصيد أول وآخر المدة.', false);
     return;
   }
 
   rows = newRows;
   renderRows();
   var classified = newRows.filter(function(r) { return r.cat; }).length;
-  var colHint = '';
-  if (cols.debitLabel || cols.creditLabel) {
-    colHint = ' | أعمدة مستخدمة: ' + (cols.debitLabel || 'مدين') + ' / ' + (cols.creditLabel || 'دائن');
+  var modeMsg = '';
+  if (mode === 'difference') {
+    modeMsg = ' | الوضع: حركة الشهر فقط (الرصيد النهائي − رصيد أول المدة)';
+  } else if (mode === 'period') {
+    modeMsg = ' | الوضع: أعمدة حركة الفترة/الشهر مباشرة';
+  } else if (mode === 'end_only') {
+    modeMsg = ' | تنبيه: وُجد رصيد ختامي فقط بدون رصيد افتتاحي — تم استخدام الرصيد الختامي. أضف عمود أول المدة لاحتساب الشهر بدقة.';
+  } else {
+    modeMsg = ' | الوضع: أعمدة المدين/الدائن كما هي (إن كان الملف تراكميًا لن يظهر الشهر فقط)';
   }
-  showUploadStatus('✅ تم استيراد ' + newRows.length + ' حساباً — مصنّف: ' + classified + ' | غير مصنف: ' + (newRows.length - classified) + colHint + ' — تأكد أن الأعمدة تمثل حركة الشهر المطلوب وليس الرصيد الختامي التراكمي.', true);
+  showUploadStatus('✅ تم استيراد ' + newRows.length + ' حساباً — مصنّف: ' + classified + ' | غير مصنف: ' + (newRows.length - classified) + modeMsg, mode !== 'end_only');
 }
 
 function handleFile(file){
