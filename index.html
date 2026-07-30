@@ -421,6 +421,8 @@
 var rows = [];
 var rowIdCounter = 0;
 var lastGeneratedData = null;
+// توازن ميزان المراجعة الأصلي (من أرصدة نهاية المدة في الملف)
+var sourceTbCheck = null;
 
 var CATEGORY_GROUPS = [
   {label:'الأصول المتداولة', opts:[
@@ -952,6 +954,7 @@ function deleteRow(id){
 function clearAll(){
   rows = [];
   lastGeneratedData = null;
+  sourceTbCheck = null;
   document.getElementById('results').classList.remove('show');
   document.getElementById('exportExcelBtn').style.display = 'none';
   document.getElementById('exportPdfBtn').style.display = 'none';
@@ -1248,13 +1251,40 @@ function handleWorkbookData(json){
   }
 
   rows = newRows;
+
+  // فحص توازن الملف من الأرصدة النهائية الأصلية (وليس مبالغ العرض المختلطة)
+  var srcDr = 0, srcCr = 0;
+  newRows.forEach(function(r) {
+    srcDr += Number(r.endDebit) || 0;
+    srcCr += Number(r.endCredit) || 0;
+  });
+  // إن لم تُحفظ أرصدة نهائية، استخدم المدين/الدائن
+  if (srcDr < 0.00001 && srcCr < 0.00001) {
+    newRows.forEach(function(r) {
+      srcDr += Number(r.debit) || 0;
+      srcCr += Number(r.credit) || 0;
+    });
+  }
+  var srcDiff = srcDr - srcCr;
+  sourceTbCheck = {
+    totalDebit: srcDr,
+    totalCredit: srcCr,
+    diff: srcDiff,
+    balanced: Math.abs(srcDiff) < 0.05
+  };
+
   renderRows();
   var classified = newRows.filter(function(r) { return r.cat; }).length;
   var msg = '✅ تم استيراد ' + newRows.length + ' حساباً';
   msg += ' | دخل (حركة الشهر): ' + countIS;
   msg += ' | مركز مالي (رصيد نهائي): ' + countBS;
   msg += ' | مصنّف: ' + classified + ' | غير مصنف: ' + (newRows.length - classified);
-  showUploadStatus(msg, true);
+  if (sourceTbCheck.balanced) {
+    msg += ' | ميزان المراجعة الأصلي: متوازن ✓';
+  } else {
+    msg += ' | ميزان أصلي غير متوازن بفارق ' + Math.abs(sourceTbCheck.diff).toFixed(2);
+  }
+  showUploadStatus(msg, sourceTbCheck.balanced);
 }
 
 function handleFile(file){
@@ -1370,18 +1400,32 @@ function updateTotals(){
   var totalDebit = rows.reduce(function(s,r) { return s + (Number(r.debit)||0); }, 0);
   var totalCredit = rows.reduce(function(s,r) { return s + (Number(r.credit)||0); }, 0);
   var diff = totalDebit - totalCredit;
-  var balanced = Math.abs(diff) < 0.01;
 
-  document.getElementById('pillDebit').textContent = fmt(totalDebit);
-  document.getElementById('pillCredit').textContent = fmt(totalCredit);
-  document.getElementById('pillDiff').textContent = fmt(diff);
-  document.getElementById('dbgTotal').textContent = fmt(totalDebit);
-  document.getElementById('crTotal').textContent = fmt(totalCredit);
+  // للتوازن المعروض: اعتمد على ميزان الملف الأصلي إن وُجد
+  var balanced, warnDiff, scaleDr, scaleCr;
+  if (sourceTbCheck && (sourceTbCheck.totalDebit > 0 || sourceTbCheck.totalCredit > 0)) {
+    balanced = sourceTbCheck.balanced;
+    warnDiff = sourceTbCheck.diff;
+    scaleDr = sourceTbCheck.totalDebit;
+    scaleCr = sourceTbCheck.totalCredit;
+  } else {
+    balanced = Math.abs(diff) < 0.05;
+    warnDiff = diff;
+    scaleDr = totalDebit;
+    scaleCr = totalCredit;
+  }
 
-  document.getElementById('unbalancedWarn').classList.toggle('show', !balanced && (totalDebit>0 || totalCredit>0));
+  document.getElementById('pillDebit').textContent = fmt(scaleDr);
+  document.getElementById('pillCredit').textContent = fmt(scaleCr);
+  document.getElementById('pillDiff').textContent = fmt(warnDiff);
+  document.getElementById('dbgTotal').textContent = fmt(scaleDr);
+  document.getElementById('crTotal').textContent = fmt(scaleCr);
 
-  var maxSide = Math.max(totalDebit, totalCredit, 1);
-  var angle = ((totalCredit - totalDebit) / maxSide) * 14;
+  // لا تُظهر تحذير عدم التوازن بسبب طرح قائمة الدخل من العرض
+  document.getElementById('unbalancedWarn').classList.toggle('show', !balanced && (scaleDr > 0 || scaleCr > 0));
+
+  var maxSide = Math.max(scaleDr, scaleCr, 1);
+  var angle = ((scaleCr - scaleDr) / maxSide) * 14;
   angle = Math.max(-14, Math.min(14, angle));
 
   var beam = document.getElementById('beamGroup');
@@ -1395,12 +1439,12 @@ function updateTotals(){
     statusEl.className = 'scale-status balanced';
     [leftPan, rightPan].forEach(function(p) { p.setAttribute('stroke', '#7FD9A8'); });
   } else {
-    statusEl.textContent = 'غير متوازن — الفرق ' + fmt(Math.abs(diff));
+    statusEl.textContent = 'غير متوازن — الفرق ' + fmt(Math.abs(warnDiff));
     statusEl.className = 'scale-status off';
     [leftPan, rightPan].forEach(function(p) { p.setAttribute('stroke', '#F0A6A0'); });
   }
 
-  return {totalDebit: totalDebit, totalCredit: totalCredit, diff: diff, balanced: balanced};
+  return {totalDebit: scaleDr, totalCredit: scaleCr, diff: warnDiff, balanced: balanced};
 }
 
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
