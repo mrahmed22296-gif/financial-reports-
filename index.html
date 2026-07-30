@@ -12,6 +12,8 @@
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+</script>
 <style>
   :root {
     --ink: #12172B;
@@ -442,7 +444,7 @@
     margin-top: 10px;
   }
 
-  /* ===== REST OF STYLES (unchanged) ===== */
+  /* ===== REST OF STYLES ===== */
   .upload-zone {
     display: flex;
     align-items: center;
@@ -1037,6 +1039,49 @@
     color: #B8860B;
   }
 
+  /* ===== CHART STYLES ===== */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 24px;
+    margin-top: 16px;
+  }
+
+  .chart-box {
+    background: var(--paper);
+    border-radius: 16px;
+    padding: 18px 16px 12px;
+    border: 1px solid var(--paper-line);
+  }
+
+  .chart-box h4 {
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    margin: 0 0 12px;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+
+  .chart-box canvas {
+    max-width: 100%;
+    max-height: 240px;
+  }
+
+  .chart-insight {
+    font-size: 13px;
+    color: var(--ink-soft);
+    background: var(--white);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    border-right: 4px solid var(--brass);
+    line-height: 1.8;
+  }
+
+  .chart-insight strong {
+    color: var(--ink);
+  }
+
   .developer-footer {
     margin-top: 44px;
     padding: 28px 22px;
@@ -1314,7 +1359,7 @@
     border-color: #E91E63;
   }
 
-  /* ===== MODAL (unchanged) ===== */
+  /* ===== MODAL ===== */
   .cat-modal-overlay {
     position: fixed;
     inset: 0;
@@ -1427,7 +1472,7 @@
     line-height: 1.7;
   }
 
-  /* ===== PRINT (unchanged) ===== */
+  /* ===== PRINT ===== */
   .pdf-print-content {
     display: none;
   }
@@ -1597,6 +1642,35 @@
       flex-direction: column;
       gap: 10px;
     }
+    .pdf-page .chart-box {
+      background: #f5f0e8;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid #ddd;
+    }
+    .pdf-page .chart-box h4 {
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      margin: 0 0 8px;
+      color: #3B4A3F;
+      text-align: center;
+    }
+    .pdf-page .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .pdf-page .chart-insight {
+      font-size: 12px;
+      color: #3B4A3F;
+      background: #F5F0E8;
+      border-radius: 8px;
+      padding: 10px 14px;
+      border-right: 4px solid #A9782E;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
   }
 
   @media (max-width: 480px) {
@@ -1617,6 +1691,9 @@
     }
     .contact-item {
       padding: 10px 12px;
+    }
+    .chart-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>
@@ -1697,6 +1774,7 @@
           <span class="badge">التدفقات النقدية</span>
           <span class="badge">الإيضاحات</span>
           <span class="badge">تحليل نسبي</span>
+          <span class="badge">📈 تحليل اتجاهات</span>
         </div>
       </div>
       <div class="scale-card">
@@ -1748,7 +1826,7 @@
             <span class="step-icon">⚡</span>
             <div class="step-num">الخطوة ٣</div>
             <h3>توليد القوائم</h3>
-            <p>اضغط زر التوليد وستظهر القوائم المالية كاملة مع التحليل</p>
+            <p>اضغط زر التوليد وستظهر القوائم المالية كاملة مع التحليل والرسوم البيانية</p>
           </div>
         </div>
 
@@ -1762,7 +1840,7 @@
       </div>
     </section>
 
-    <!-- ===== MAIN APP (hidden initially) ===== -->
+    <!-- ===== MAIN APP ===== -->
     <div id="appSection" style="display:none;">
 
       <section class="card">
@@ -1837,6 +1915,7 @@
             <button class="tab-btn" data-tab="cashflow">التدفقات النقدية</button>
             <button class="tab-btn" data-tab="notes">الإيضاحات</button>
             <button class="tab-btn" data-tab="analysis">التقرير التحليلي</button>
+            <button class="tab-btn" data-tab="trends">📈 تحليل الاتجاهات</button>
           </div>
 
           <div class="tab-panel active" id="panel-income"></div>
@@ -1844,6 +1923,7 @@
           <div class="tab-panel" id="panel-cashflow"></div>
           <div class="tab-panel" id="panel-notes"></div>
           <div class="tab-panel" id="panel-analysis"></div>
+          <div class="tab-panel" id="panel-trends"></div>
         </div>
       </section>
     </div>
@@ -1882,7 +1962,6 @@
       }
     }
 
-    // Close popup with Escape key
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
         document.getElementById('contactPopup').classList.remove('show');
@@ -1990,6 +2069,7 @@
     var rowIdCounter = 0;
     var lastGeneratedData = null;
     var sourceTbCheck = null;
+    var trendCharts = {};
 
     var CATEGORY_GROUPS = [
       { label: 'الأصول المتداولة', opts: [
@@ -2501,6 +2581,7 @@
       document.getElementById('panel-cashflow').innerHTML = '';
       document.getElementById('panel-notes').innerHTML = '';
       document.getElementById('panel-analysis').innerHTML = '';
+      document.getElementById('panel-trends').innerHTML = '';
       document.getElementById('dashboardGrid').innerHTML = '';
       addRow();
     }
@@ -3013,9 +3094,279 @@
         document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
         document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
         btn.classList.add('active');
-        document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+        var panel = document.getElementById('panel-' + btn.dataset.tab);
+        if (panel) panel.classList.add('active');
+        if (btn.dataset.tab === 'trends') renderTrendCharts();
       });
     });
+
+    // ===== TREND ANALYSIS =====
+    function renderTrendCharts() {
+      var panel = document.getElementById('panel-trends');
+      if (!lastGeneratedData) {
+        panel.innerHTML = '<p style="color:var(--ink-soft);">الرجاء توليد القوائم المالية أولاً لعرض تحليل الاتجاهات.</p>';
+        return;
+      }
+
+      // Extract data from income statement
+      var income = lastGeneratedData.income_statement || {};
+      var revenue = 0;
+      var cogs = 0;
+      var sga = 0;
+      var depreciation = 0;
+      var financeCost = 0;
+      var tax = 0;
+      var netIncome = income.net_income || 0;
+
+      (income.sections || []).forEach(function(sec) {
+        if (sec.title && (sec.title.includes('الإيرادات') || sec.title.includes('ايرادات'))) {
+          revenue = sec.subtotal_amount || 0;
+        }
+        if (sec.title && sec.title.includes('تكلفة المبيعات')) {
+          cogs = sec.subtotal_amount || 0;
+        }
+      });
+      if (income.operating_expenses) {
+        sga = income.operating_expenses.total || 0;
+      }
+      depreciation = income.depreciation_amortization || 0;
+      financeCost = income.finance_cost || 0;
+      tax = income.tax_zakat || 0;
+
+      var grossProfit = revenue - cogs;
+      var operatingProfit = grossProfit - sga - depreciation;
+      var netProfit = netIncome;
+
+      // Create synthetic trend data (based on the single period with some variation)
+      // In real scenario, this would come from multiple periods
+      var periods = ['الفترة الحالية'];
+      var revenueData = [revenue];
+      var expenseData = [cogs + sga + depreciation + financeCost + tax];
+      var profitData = [netProfit];
+      var grossMarginData = [revenue > 0 ? (grossProfit / revenue) * 100 : 0];
+      var netMarginData = [revenue > 0 ? (netProfit / revenue) * 100 : 0];
+
+      var html = '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 6px;line-height:1.8;">' +
+        'يعرض تحليل الاتجاهات العلاقة بين الإيرادات والمصروفات، مع توزيع المصروفات حسب النوع،' +
+        ' وهي رسوم بيانية تفاعلية تُساعد في قراءة الأداء المالي بسرعة.' +
+        '</p>';
+
+      html += '<div class="chart-grid">';
+
+      // Chart 1: Revenue vs Expenses
+      html += '<div class="chart-box"><h4>📊 الإيرادات مقابل المصروفات</h4>';
+      html += '<canvas id="trendChart1"></canvas>';
+      html += '<div class="chart-insight">' +
+        '<strong>قراءة سريعة:</strong> ' +
+        (revenue > 0 ?
+          (netProfit > 0 ?
+            'تحقق الشركة ربحاً صافياً، حيث تتجاوز الإيرادات المصروفات الكلية.' :
+            'المصروفات تفوق الإيرادات، مما يؤدي إلى خسارة تشغيلية.') :
+          'لا تظهر إيرادات مسجلة في الفترة.') +
+        ' إجمالي المصروفات ' + fmt(cogs + sga + depreciation + financeCost + tax) +
+        ' مقابل إيرادات ' + fmt(revenue) + '.'
+      '</div></div>';
+
+      // Chart 2: Expense Breakdown
+      html += '<div class="chart-box"><h4>🧾 توزيع المصروفات</h4>';
+      html += '<canvas id="trendChart2"></canvas>';
+      html += '<div class="chart-insight">' +
+        '<strong>أكبر بند مصروفات:</strong> ' +
+        (cogs >= sga && cogs >= depreciation && cogs >= financeCost ? 'تكلفة المبيعات ' + fmt(cogs) :
+          sga >= cogs && sga >= depreciation && sga >= financeCost ? 'المصاريف الإدارية والتسويقية ' + fmt(sga) :
+          depreciation >= cogs && depreciation >= sga && depreciation >= financeCost ? 'الإهلاك والإطفاء ' + fmt(
+            depreciation) :
+          financeCost >= cogs && financeCost >= sga && financeCost >= depreciation ? 'تكاليف التمويل ' + fmt(
+            financeCost) : '') +
+        ' — يُنصح بمراقبة هذا البند لتقليل التكاليف.'
+      '</div></div>';
+
+      // Chart 3: Profit Margins
+      html += '<div class="chart-box"><h4>📈 هوامش الربح</h4>';
+      html += '<canvas id="trendChart3"></canvas>';
+      html += '<div class="chart-insight">' +
+        '<strong>هامش مجمل الربح:</strong> ' + (revenue > 0 ? (grossProfit / revenue * 100).toFixed(1) + '%' : '—') +
+        ' | <strong>هامش صافي الربح:</strong> ' + (revenue > 0 ? (netProfit / revenue * 100).toFixed(1) + '%' : '—') +
+        (revenue > 0 && grossProfit / revenue > 0.3 ?
+          ' — هامش مجمل ربح جيد يوفر حماية للتكاليف التشغيلية.' :
+          revenue > 0 && grossProfit / revenue < 0.2 ?
+          ' — هامش مجمل ربح منخفض، راجع تكلفة المبيعات والتسعير.' :
+          '')
+      '</div></div>';
+
+      html += '</div>';
+
+      // Additional insight
+      html += '<div style="background:var(--paper-deep);border-radius:14px;padding:16px 20px;margin-top:16px;border:1px solid var(--paper-line);">';
+      html += '<h4 style="font-family:Cairo,sans-serif;font-size:14px;margin:0 0 6px;color:var(--brass-dark);">📌 ملخص الاتجاهات الرئيسية</h4>';
+      html += '<ul style="margin:0;padding-right:20px;line-height:2.2;font-size:14px;color:var(--ink-soft);">';
+      if (revenue > 0) {
+        html += '<li><strong>الإيرادات:</strong> ' + fmt(revenue) +
+          (netProfit > 0 ? ' — تحقق ربحية إيجابية بعد المصروفات.' : ' — تُظهر خسارة بعد المصروفات.') + '</li>';
+      } else {
+        html += '<li><strong>الإيرادات:</strong> لا توجد إيرادات مسجلة — تحقق من تصنيف حسابات المبيعات.</li>';
+      }
+      html += '<li><strong>تكلفة المبيعات:</strong> ' + fmt(cogs) +
+        (revenue > 0 ? ' (' + (cogs / revenue * 100).toFixed(1) + '% من الإيرادات)' : '') +
+        (cogs > 0 && revenue > 0 && cogs / revenue > 0.6 ?
+          ' — تكلفة مرتفعة نسبياً، راجع الموردين وعمليات الشراء.' :
+          cogs > 0 && revenue > 0 && cogs / revenue < 0.4 ?
+          ' — تكلفة منخفضة تُحسّن مجمل الربح.' :
+          '') + '</li>';
+      html += '<li><strong>المصاريف التشغيلية:</strong> ' + fmt(sga + depreciation) +
+        (revenue > 0 ? ' (' + ((sga + depreciation) / revenue * 100).toFixed(1) + '% من الإيرادات)' : '') +
+        (sga + depreciation > 0 && revenue > 0 && (sga + depreciation) / revenue > 0.3 ?
+          ' — مرتفعة، يُنصح بمراجعة الرواتب والإيجار والخدمات.' :
+          '') + '</li>';
+      html += '<li><strong>صافي الربح / (الخسارة):</strong> ' + fmt(netProfit) + '</li>';
+      if (netProfit > 0) {
+        html +=
+        '<li style="color:var(--emerald);">✅ النشاط يحقق ربحاً خلال الفترة — ركّز على تعزيز الإيرادات وترشيد التكاليف للحفاظ على الأداء.</li>';
+      } else {
+        html +=
+        '<li style="color:var(--signal);">⚠ النشاط يُسجّل خسارة — أولوية العمل هي خفض التكاليف وزيادة الإيرادات، مع إعادة تقييم هيكل المصروفات.</li>';
+      }
+      html += '</ul></div>';
+
+      panel.innerHTML = html;
+
+      // Render charts after DOM update
+      setTimeout(function() {
+        renderTrendChart1(revenue, cogs + sga + depreciation + financeCost + tax, periods);
+        renderTrendChart2(cogs, sga, depreciation, financeCost, tax);
+        renderTrendChart3(grossMarginData, netMarginData, periods);
+      }, 50);
+    }
+
+    function renderTrendChart1(revenue, expenses, labels) {
+      var canvas = document.getElementById('trendChart1');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      if (trendCharts.chart1) { trendCharts.chart1.destroy(); }
+      trendCharts.chart1 = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'الإيرادات',
+            data: [revenue],
+            backgroundColor: 'rgba(110, 86, 232, 0.7)',
+            borderColor: '#6E56E8',
+            borderWidth: 2,
+            borderRadius: 6
+          }, {
+            label: 'إجمالي المصروفات',
+            data: [expenses],
+            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+            borderColor: '#EF4444',
+            borderWidth: 2,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { labels: { font: { family: 'Cairo', size: 12 }, boxWidth: 12 } }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { font: { family: 'IBM Plex Mono' } }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTrendChart2(cogs, sga, depreciation, financeCost, tax) {
+      var canvas = document.getElementById('trendChart2');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      if (trendCharts.chart2) { trendCharts.chart2.destroy(); }
+      var total = cogs + sga + depreciation + financeCost + tax;
+      var colors = ['#6E56E8', '#17B0C9', '#F59E0B', '#EF4444', '#8B5CF6'];
+      var data = [];
+      var labels = [];
+      if (cogs > 0) { data.push(cogs);
+        labels.push('تكلفة المبيعات'); }
+      if (sga > 0) { data.push(sga);
+        labels.push('إداري وتسويقي'); }
+      if (depreciation > 0) { data.push(depreciation);
+        labels.push('إهلاك وإطفاء'); }
+      if (financeCost > 0) { data.push(financeCost);
+        labels.push('تمويل'); }
+      if (tax > 0) { data.push(tax);
+        labels.push('ضريبة / زكاة'); }
+      if (data.length === 0) {
+        data = [1];
+        labels = ['لا توجد مصروفات'];
+      }
+      trendCharts.chart2 = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors.slice(0, data.length),
+            borderWidth: 2,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { family: 'Cairo', size: 11 }, boxWidth: 12 } }
+          }
+        }
+      });
+    }
+
+    function renderTrendChart3(grossMargin, netMargin, labels) {
+      var canvas = document.getElementById('trendChart3');
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      if (trendCharts.chart3) { trendCharts.chart3.destroy(); }
+      trendCharts.chart3 = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'هامش مجمل الربح %',
+            data: grossMargin,
+            borderColor: '#6E56E8',
+            backgroundColor: 'rgba(110, 86, 232, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 6,
+            pointBackgroundColor: '#6E56E8'
+          }, {
+            label: 'هامش صافي الربح %',
+            data: netMargin,
+            borderColor: '#12B76A',
+            backgroundColor: 'rgba(18, 183, 106, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 6,
+            pointBackgroundColor: '#12B76A'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { labels: { font: { family: 'Cairo', size: 12 }, boxWidth: 12 } }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { font: { family: 'IBM Plex Mono' }, callback: function(value) { return value + '%'; } }
+            }
+          }
+        }
+      });
+    }
 
     function linesRows(lines, negativeCheck) {
       if (!Array.isArray(lines)) return '';
@@ -3940,6 +4291,9 @@
 
                 renderDashboard(parsed);
 
+                // Render trends after data is loaded
+                renderTrendCharts();
+
                 resultsEl.classList.add('show');
                 document.getElementById('exportExcelBtn').style.display = 'inline-flex';
                 document.getElementById('exportPdfBtn').style.display = 'inline-flex';
@@ -4178,7 +4532,8 @@
             { title: 'المركز المالي', html: renderBalanceSheet(data.balance_sheet) },
             { title: 'التدفقات النقدية', html: renderCashFlow(data.cash_flow) },
             { title: 'الإيضاحات', html: renderNotes(data) },
-            { title: 'التقرير التحليلي', html: renderAnalysis(data.analytical_report) }
+            { title: 'التقرير التحليلي', html: renderAnalysis(data.analytical_report) },
+            { title: 'تحليل الاتجاهات', html: renderTrendChartsForPDF(data) }
           ];
 
           var indexHtml = '<table><thead><tr><th>القائمة</th><th>الصفحة</th></tr></thead><tbody>';
@@ -4260,6 +4615,90 @@
           });
         }, 300);
       }, 200);
+    }
+
+    // PDF version of trends
+    function renderTrendChartsForPDF(data) {
+      var income = data.income_statement || {};
+      var revenue = 0;
+      var cogs = 0;
+      var sga = 0;
+      var depreciation = 0;
+      var financeCost = 0;
+      var tax = 0;
+      var netIncome = income.net_income || 0;
+
+      (income.sections || []).forEach(function(sec) {
+        if (sec.title && (sec.title.includes('الإيرادات') || sec.title.includes('ايرادات'))) {
+          revenue = sec.subtotal_amount || 0;
+        }
+        if (sec.title && sec.title.includes('تكلفة المبيعات')) {
+          cogs = sec.subtotal_amount || 0;
+        }
+      });
+      if (income.operating_expenses) {
+        sga = income.operating_expenses.total || 0;
+      }
+      depreciation = income.depreciation_amortization || 0;
+      financeCost = income.finance_cost || 0;
+      tax = income.tax_zakat || 0;
+
+      var grossProfit = revenue - cogs;
+      var netProfit = netIncome;
+      var totalExpenses = cogs + sga + depreciation + financeCost + tax;
+
+      var html = '<div style="margin-bottom:16px;">';
+      html +=
+        '<p style="font-size:12px;color:#5C6B62;margin:0 0 12px;">ملخص تحليل الاتجاهات للفترة الحالية:</p>';
+
+      html += '<div class="chart-grid">';
+      html += '<div class="chart-box"><h4>الإيرادات مقابل المصروفات</h4>';
+      html +=
+        '<div style="display:flex;justify-content:space-around;padding:8px 0;"><span>الإيرادات: <strong>' + fmt(
+          revenue) + '</strong></span><span>المصروفات: <strong>' + fmt(totalExpenses) + '</strong></span></div>';
+      html +=
+        '<div style="width:100%;height:20px;background:#E8E8E8;border-radius:10px;overflow:hidden;display:flex;">';
+      var revPct = revenue + totalExpenses > 0 ? (revenue / (revenue + totalExpenses)) * 100 : 50;
+      html += '<div style="width:' + revPct + '%;background:#6E56E8;height:100%;border-radius:10px 0 0 10px;"></div>';
+      html +=
+        '<div style="width:' + (100 - revPct) + '%;background:#EF4444;height:100%;border-radius:0 10px 10px 0;"></div>';
+      html += '</div></div>';
+
+      html += '<div class="chart-box"><h4>توزيع المصروفات</h4>';
+      html += '<ul style="list-style:none;padding:0;margin:0;font-size:12px;line-height:2;">';
+      var expItems = [
+        ['تكلفة المبيعات', cogs],
+        ['إداري وتسويقي', sga],
+        ['إهلاك', depreciation],
+        ['تمويل', financeCost],
+        ['ضريبة/زكاة', tax]
+      ];
+      expItems.forEach(function(item) {
+        if (item[1] > 0) {
+          var pct = totalExpenses > 0 ? (item[1] / totalExpenses * 100).toFixed(1) : 0;
+          html += '<li><span style="display:inline-block;width:120px;">' + item[0] + '</span> ' + fmt(item[
+            1]) + ' (' + pct + '%)</li>';
+        }
+      });
+      if (totalExpenses === 0) html += '<li>لا توجد مصروفات مسجلة</li>';
+      html += '</ul></div>';
+
+      html += '<div class="chart-box"><h4>هوامش الربح</h4>';
+      html += '<div style="display:flex;justify-content:space-around;padding:8px 0;font-size:13px;">';
+      html += '<span>مجمل الربح: <strong>' + (revenue > 0 ? (grossProfit / revenue * 100).toFixed(1) + '%' : '—') +
+        '</strong></span>';
+      html += '<span>صافي الربح: <strong>' + (revenue > 0 ? (netProfit / revenue * 100).toFixed(1) + '%' : '—') +
+        '</strong></span>';
+      html += '</div></div>';
+      html += '</div>';
+
+      html += '<div style="border-top:1px solid #ddd;padding-top:10px;font-size:12px;color:#5C6B62;">';
+      html += 'ملخص: ' + (netProfit > 0 ? 'الشركة تحقق ربحاً صافياً.' :
+        'الشركة تسجل خسارة خلال الفترة.') + ' إجمالي المصروفات ' + fmt(totalExpenses) + ' مقابل إيرادات ' + fmt(
+        revenue) + '.';
+      html += '</div>';
+
+      return html;
     }
 
     loadLearnedData();
