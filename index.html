@@ -562,6 +562,10 @@ function classifyAccount(name, debit, credit) {
   var debit = Number(debit) || 0;
   var credit = Number(credit) || 0;
 
+  // 1) ذاكرة المستخدم لها الأولوية القصوى
+  var learned = lookupLearned(trimmedName);
+  if (learned) return learned;
+
   var bestMatch = '';
   var bestScore = 0;
 
@@ -643,6 +647,9 @@ function categorySelectHTML(rowId, selected){
     }
     html += '</optgroup>';
   }
+  html += '<optgroup label="── إدارة التصنيفات ──">';
+  html += '<option value="__add_new__">＋ إضافة تصنيف جديد…</option>';
+  html += '</optgroup>';
   html += '</select>';
   return html;
 }
@@ -650,6 +657,84 @@ function categorySelectHTML(rowId, selected){
 
 var CUSTOM_CAT_COUNTER = 0;
 var CUSTOM_CAT_BASE = {}; // custom_key -> base category used in computations
+
+// ====== ذاكرة التصنيف (تعلّم من المستخدم) ======
+var LEARNED_MAP = {}; // normalized account name -> category key
+
+function loadLearnedData() {
+  try {
+    var raw = localStorage.getItem('fs_learned_map');
+    if (raw) LEARNED_MAP = JSON.parse(raw) || {};
+    var cats = localStorage.getItem('fs_custom_cats');
+    if (cats) {
+      var list = JSON.parse(cats) || [];
+      list.forEach(function(item) {
+        // item: {key, label, groupIdx, isDebit, base}
+        if (!item || !item.key) return;
+        var exists = CATEGORY_GROUPS[item.groupIdx] && CATEGORY_GROUPS[item.groupIdx].opts.some(function(o) { return o[0] === item.key; });
+        if (!exists && CATEGORY_GROUPS[item.groupIdx]) {
+          CATEGORY_GROUPS[item.groupIdx].opts.push([item.key, item.label]);
+        }
+        if (item.base) CUSTOM_CAT_BASE[item.key] = item.base;
+        if (item.isDebit) DEBIT_NATURE.add(item.key);
+        // track counter
+        var m = String(item.key).match(/custom_(\d+)/);
+        if (m) CUSTOM_CAT_COUNTER = Math.max(CUSTOM_CAT_COUNTER, Number(m[1]));
+      });
+    }
+  } catch (e) { console.warn('loadLearnedData', e); }
+}
+
+function saveLearnedMap() {
+  try { localStorage.setItem('fs_learned_map', JSON.stringify(LEARNED_MAP)); } catch (e) {}
+}
+
+function saveCustomCats() {
+  try {
+    var list = [];
+    CATEGORY_GROUPS.forEach(function(g, gi) {
+      (g.opts || []).forEach(function(o) {
+        if (String(o[0]).indexOf('custom_') === 0) {
+          list.push({
+            key: o[0],
+            label: o[1],
+            groupIdx: gi,
+            isDebit: DEBIT_NATURE.has(o[0]),
+            base: CUSTOM_CAT_BASE[o[0]] || null
+          });
+        }
+      });
+    });
+    localStorage.setItem('fs_custom_cats', JSON.stringify(list));
+  } catch (e) {}
+}
+
+function rememberClassification(accountName, cat) {
+  if (!accountName || !cat || cat === '__add_new__') return;
+  var key = normalizeAccountName(accountName).toLowerCase();
+  if (!key) return;
+  LEARNED_MAP[key] = cat;
+  saveLearnedMap();
+}
+
+function lookupLearned(accountName) {
+  if (!accountName) return '';
+  var key = normalizeAccountName(accountName).toLowerCase();
+  if (LEARNED_MAP[key]) return LEARNED_MAP[key];
+  // تطابق جزئي: إذا بدأ الاسم بنفس النص المحفوظ
+  var best = '';
+  var bestLen = 0;
+  Object.keys(LEARNED_MAP).forEach(function(k) {
+    if (key.indexOf(k) !== -1 || k.indexOf(key) !== -1) {
+      if (k.length > bestLen) {
+        bestLen = k.length;
+        best = LEARNED_MAP[k];
+      }
+    }
+  });
+  return best;
+}
+
 
 
 function autoClassifyAll() {
@@ -671,36 +756,35 @@ function autoClassifyAll() {
   showUploadStatus(msg, unclear === 0);
 }
 
-function addCustomCategory() {
+function addCustomCategory(applyToRowId) {
   var label = prompt('اسم التصنيف الجديد (بالعربية):');
   if (!label || !label.trim()) return;
   label = label.trim();
 
   var groupChoice = prompt(
-    'اختر المجموعة برقم:\\n' +
-    '1 = أصول متداولة\\n' +
-    '2 = أصول غير متداولة\\n' +
-    '3 = التزامات متداولة\\n' +
-    '4 = التزامات غير متداولة\\n' +
-    '5 = حقوق الملكية\\n' +
-    '6 = إيرادات\\n' +
+    'اختر المجموعة برقم:\n' +
+    '1 = أصول متداولة\n' +
+    '2 = أصول غير متداولة\n' +
+    '3 = التزامات متداولة\n' +
+    '4 = التزامات غير متداولة\n' +
+    '5 = حقوق الملكية\n' +
+    '6 = إيرادات\n' +
     '7 = مصروفات',
     '1'
   );
   var groupMap = {
     '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6
   };
-  var gIdx = groupMap[String(groupChoice || '1')] ;
+  var gIdx = groupMap[String(groupChoice || '1')];
   if (gIdx === undefined) gIdx = 0;
 
-  var nature = prompt('طبيعة الحساب؟\\n1 = مدين (أصل/مصروف)\\n2 = دائن (التزام/إيراد/حقوق ملكية)', gIdx <= 1 || gIdx === 6 ? '1' : '2');
+  var nature = prompt('طبيعة الحساب؟\n1 = مدين (أصل/مصروف)\n2 = دائن (التزام/إيراد/حقوق ملكية)', (gIdx <= 1 || gIdx === 6) ? '1' : '2');
   var isDebit = String(nature || '1') === '1';
 
   CUSTOM_CAT_COUNTER++;
   var key = 'custom_' + CUSTOM_CAT_COUNTER;
   CATEGORY_GROUPS[gIdx].opts.push([key, label]);
 
-  // ربط التصنيف المخصص ببند أساسي في القوائم المالية
   var baseByGroup = ['other_ca', 'other_nca', 'other_cl', 'other_ncl', 'reserves', 'other_income', 'other_expense'];
   CUSTOM_CAT_BASE[key] = baseByGroup[gIdx] || 'other_expense';
 
@@ -708,9 +792,21 @@ function addCustomCategory() {
     DEBIT_NATURE.add(key);
   }
 
+  saveCustomCats();
+
+  if (applyToRowId != null) {
+    var row = rows.find(function(r) { return r.id === applyToRowId; });
+    if (row) {
+      row.cat = key;
+      if (row.name) rememberClassification(row.name, key);
+    }
+  }
+
   renderRows();
-  alert('تم إضافة التصنيف «' + label + '» — سيظهر ضمن: ' + CATEGORY_GROUPS[gIdx].label);
+  updateClassificationWarning();
+  alert('تم حفظ التصنيف «' + label + '» ضمن «' + CATEGORY_GROUPS[gIdx].label + '» وسيُستخدم تلقائياً لاحقاً للحسابات المشابهة.');
 }
+
 
 function addRow(){
   rows.push({id: rowIdCounter++, name:"", debit:0, credit:0, cat:""});
@@ -969,7 +1065,7 @@ function renderRows(){
   updateClassificationWarning();
 }
 
-document.getElementById('tbBody').addEventListener('input', function(e) {
+function onTbFieldChange(e) {
   var id = Number(e.target.dataset.id);
   var field = e.target.dataset.field;
   var row = rows.find(function(r) { return r.id === id; });
@@ -985,14 +1081,25 @@ document.getElementById('tbBody').addEventListener('input', function(e) {
       }
     }
   } else if(field === 'cat'){
+    if (e.target.value === '__add_new__') {
+      e.target.value = row.cat || '';
+      addCustomCategory(row.id);
+      return;
+    }
     row.cat = e.target.value;
     e.target.classList.toggle('unclassified', !e.target.value);
+    if (row.cat && row.name) {
+      rememberClassification(row.name, row.cat);
+    }
   } else {
     row[field] = Number(e.target.value) || 0;
   }
   updateTotals();
   updateClassificationWarning();
-});
+}
+document.getElementById('tbBody').addEventListener('input', onTbFieldChange);
+document.getElementById('tbBody').addEventListener('change', onTbFieldChange);
+
 
 function updateClassificationWarning(){
   var anyUnclassified = rows.some(function(r) { return r.name && r.name.trim() !== '' && !r.cat; });
@@ -2051,7 +2158,8 @@ function exportToPDF() {
   });
 }
 
-// بدء التطبيق بدون مثال - صف واحد فارغ
+// بدء التطبيق — تحميل ذاكرة التصنيف ثم صف فارغ
+loadLearnedData();
 addRow();
 </script>
 </body>
