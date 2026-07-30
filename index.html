@@ -1120,7 +1120,6 @@ function handleWorkbookData(json){
   var skipRe = /^(page|صفحة|sheet|تقرير|ميزان\s*المراجعة|trial\s*balance|company|شركة)/i;
   var newRows = [];
 
-  // تصنيفات قائمة الدخل → حركة الشهر فقط
   var INCOME_CATS = {
     revenue: 1, other_income: 1, cogs: 1, sga: 1, depreciation: 1,
     finance_cost: 1, tax: 1, other_expense: 1, dividends: 1
@@ -1159,27 +1158,25 @@ function handleWorkbookData(json){
     if (!name || totalRe.test(name) || skipRe.test(name) || name.length < 2) continue;
     if (/^[0-9.\-\/]+$/.test(name) && name.length < 12) continue;
 
-    // --- قراءة الأرصدة الثلاثة ---
+    // حركة الفترة/الشهر
     var periodDr = hasPeriod ? cellNum(r, cols.periodDebitIdx) : 0;
     var periodCr = hasPeriod ? cellNum(r, cols.periodCreditIdx) : 0;
-    if (hasPeriod && Math.abs(periodDr) < 0.00001 && Math.abs(periodCr) < 0.00001 && canDiff) {
-      // احتياطي: الفرق إن كانت أعمدة الشهر فارغة
+    if (Math.abs(periodDr) < 0.00001 && Math.abs(periodCr) < 0.00001 && canDiff) {
       var mov = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx)
               - netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
       var m = toDebitCredit(mov);
-      periodDr = m.debit;
-      periodCr = m.credit;
+      periodDr = m.debit; periodCr = m.credit;
     } else if (!hasPeriod && canDiff) {
       var mov2 = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx)
                - netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
       var m2 = toDebitCredit(mov2);
-      periodDr = m2.debit;
-      periodCr = m2.credit;
+      periodDr = m2.debit; periodCr = m2.credit;
     } else if (!hasPeriod && !canDiff) {
       periodDr = cellNum(r, cols.debitIdx);
       periodCr = cellNum(r, cols.creditIdx);
     }
 
+    // الرصيد النهائي
     var endDr = 0, endCr = 0;
     if (hasEnd) {
       endDr = cellNum(r, cols.endDebitIdx);
@@ -1189,39 +1186,60 @@ function handleWorkbookData(json){
         if (eb > 0) endDr = eb;
         else if (eb < 0) endCr = Math.abs(eb);
       }
-    } else if (!hasPeriod) {
-      // ملف بسيط بدون تفصيل: استخدم المدين/الدائن كرصيد
-      endDr = cellNum(r, cols.debitIdx);
-      endCr = cellNum(r, cols.creditIdx);
+    } else {
+      endDr = periodDr;
+      endCr = periodCr;
     }
 
-    // تصنيف أولي بالاسم (مع حركة الشهر كمرجع للطبيعة)
+    // رصيد أول المدة
+    var openDr = 0, openCr = 0;
+    if (hasOpen) {
+      openDr = cellNum(r, cols.openDebitIdx);
+      openCr = cellNum(r, cols.openCreditIdx);
+      if (Math.abs(openDr) < 0.00001 && Math.abs(openCr) < 0.00001 && cols.openBalIdx > -1) {
+        var ob = cellNum(r, cols.openBalIdx);
+        if (ob > 0) openDr = ob;
+        else if (ob < 0) openCr = Math.abs(ob);
+      }
+    }
+
     var cat = classifyAccount(name, periodDr || endDr, periodCr || endCr);
     var isIncome = !!(cat && INCOME_CATS[cat]);
 
-    var debit = 0, credit = 0;
-    if (isIncome) {
-      // قائمة الدخل = حركة الشهر فقط
-      debit = periodDr;
-      credit = periodCr;
-      if (Math.abs(debit) > 0.00001 || Math.abs(credit) > 0.00001) countIS++;
-    } else {
-      // المركز المالي = الرصيد النهائي
-      debit = endDr;
-      credit = endCr;
-      // إن لم يوجد رصيد ختامي، استخدم الحركة كاحتياطي
-      if (Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001) {
-        debit = periodDr;
-        credit = periodCr;
-      }
-      if (Math.abs(debit) > 0.00001 || Math.abs(credit) > 0.00001) countBS++;
+    // للعرض في الجدول: الدخل = حركة شهر، المركز = رصيد نهائي
+    var debit = isIncome ? periodDr : endDr;
+    var credit = isIncome ? periodCr : endCr;
+    if (!isIncome && Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001) {
+      debit = periodDr; credit = periodCr;
     }
 
-    if (Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001) continue;
+    if (Math.abs(periodDr) < 0.00001 && Math.abs(periodCr) < 0.00001 &&
+        Math.abs(endDr) < 0.00001 && Math.abs(endCr) < 0.00001) continue;
 
-    // إعادة التصنيف بالمبالغ النهائية المستخدمة
+    // لا تتخطّ حسابات الدخل ذات رصيد ختامي حتى لو حركة الشهر صفر (للأرباح الشاملة)
+    if (isIncome) {
+      if (Math.abs(periodDr) < 0.00001 && Math.abs(periodCr) < 0.00001 &&
+          Math.abs(endDr) < 0.00001 && Math.abs(endCr) < 0.00001) continue;
+      countIS++;
+    } else {
+      if (Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001) continue;
+      countBS++;
+    }
+
     cat = classifyAccount(name, debit, credit);
-    newRows.push({ id: rowIdCounter++, name: name, debit: debit, credit: credit, cat: cat });
+    newRows.push({
+      id: rowIdCounter++,
+      name: name,
+      debit: debit,
+      credit: credit,
+      cat: cat,
+      periodDebit: periodDr,
+      periodCredit: periodCr,
+      endDebit: endDr,
+      endCredit: endCr,
+      openDebit: openDr,
+      openCredit: openCr
+    });
   }
 
   if (newRows.length === 0) {
@@ -1233,8 +1251,8 @@ function handleWorkbookData(json){
   renderRows();
   var classified = newRows.filter(function(r) { return r.cat; }).length;
   var msg = '✅ تم استيراد ' + newRows.length + ' حساباً';
-  msg += ' | قائمة الدخل (حركة الشهر): ' + countIS;
-  msg += ' | المركز المالي (رصيد نهائي): ' + countBS;
+  msg += ' | دخل (حركة الشهر): ' + countIS;
+  msg += ' | مركز مالي (رصيد نهائي): ' + countBS;
   msg += ' | مصنّف: ' + classified + ' | غير مصنف: ' + (newRows.length - classified);
   showUploadStatus(msg, true);
 }
@@ -1523,23 +1541,22 @@ function renderBalanceSheet(d) {
   html += sectionTitle('حقوق الملكية');
   html += '<table class="stmt-table"><tbody>';
   appendCatLines(['capital', 'partner_current', 'reserves']);
-  // الأرباح المبقاة: رصيد الميزان + ربح الفترة = شاملة الفترة
-  var retainedBase = sumCatLocal('retained');
-  var netIncome = d.net_income || 0;
+  var retainedBase = (d.equity && d.equity.retained_base != null) ? d.equity.retained_base : sumCatLocal('retained');
+  var fullPeriodProfit = (d.full_period_profit != null) ? d.full_period_profit : (d.net_income || 0);
   var divTotal = sumCatLocal('dividends');
   (catMap['retained'] || []).forEach(function(a) {
-    html += '<tr><td>' + esc(a.name) + ' (رصيد أول المدة / من الميزان)</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
   });
   if (!(catMap['retained'] || []).length && retainedBase) {
     html += '<tr><td>أرباح مبقاة (من الميزان)</td><td class="num">' + fmt(retainedBase) + '</td></tr>';
   }
-  if (netIncome !== 0) {
-    html += '<tr><td>ربح (خسارة) الفترة الحالية</td><td class="num">' + fmt(netIncome) + '</td></tr>';
-  }
+  html += '<tr><td>أرباح (خسائر) الفترة غير المُقفلة (شاملة)</td><td class="num">' + fmt(fullPeriodProfit) + '</td></tr>';
   if (divTotal) {
     html += '<tr><td>توزيعات أرباح</td><td class="num">(' + fmt(Math.abs(divTotal)) + ')</td></tr>';
   }
-  var retainedComprehensive = retainedBase + netIncome - divTotal;
+  var retainedComprehensive = (d.equity && d.equity.retained_comprehensive != null)
+    ? d.equity.retained_comprehensive
+    : (retainedBase + fullPeriodProfit - divTotal);
   html += subtotalRow('أرباح مبقاة شاملة الفترة', retainedComprehensive);
   var totalEquity = sumCatLocal('capital') + sumCatLocal('partner_current') + sumCatLocal('reserves') + retainedComprehensive;
   html += subtotalRow('إجمالي حقوق الملكية', totalEquity);
@@ -1686,6 +1703,27 @@ function computeStatements(accounts, tbTotals){
   var netIncomeBeforeTax = ebit - financeCostTotal;
   var netIncome = netIncomeBeforeTax - taxTotal;
 
+  // صافي الأرباح/الخسائر غير المُقفلة بالكامل (من الأرصدة النهائية لحسابات الدخل)
+  function netAmountEnd(row) {
+    var isDebitNature = DEBIT_NATURE.has(row.cat);
+    var d = (row.endDebit != null) ? Number(row.endDebit) || 0 : (Number(row.debit) || 0);
+    var c = (row.endCredit != null) ? Number(row.endCredit) || 0 : (Number(row.credit) || 0);
+    return isDebitNature ? (d - c) : (c - d);
+  }
+  var INCOME_CATS_SET = { revenue:1, other_income:1, cogs:1, sga:1, depreciation:1, finance_cost:1, tax:1, other_expense:1 };
+  var fullPeriodProfit = 0;
+  accounts.forEach(function(a) {
+    var base = resolveCat(a.cat) || a.cat;
+    if (!INCOME_CATS_SET[a.cat] && !INCOME_CATS_SET[base]) return;
+    var n = netAmountEnd(a);
+    if (base === 'revenue' || base === 'other_income' || a.cat === 'revenue' || a.cat === 'other_income') {
+      fullPeriodProfit += n;
+    } else {
+      fullPeriodProfit -= n;
+    }
+  });
+
+
   var sections = [
     {title:'الإيرادات', lines: revenueLines, subtotal_label:'إجمالي الإيرادات', subtotal_amount: revenueTotal}
   ];
@@ -1744,9 +1782,10 @@ function computeStatements(accounts, tbTotals){
   var retainedTotal = sumCat(accounts, 'retained');
   var dividendsTotal = sumCat(accounts, 'dividends');
   
-  var totalEquity = capitalTotal + partnerCurrentTotal + reservesTotal + retainedTotal + netIncome - dividendsTotal;
+  // الأرباح المرحلة الشاملة = رصيد الأرباح المبقاة + صافي أرباح/خسائر غير المُقفلة بالكامل (أرصدة نهائية للدخل)
+  var retainedComprehensive = retainedTotal + fullPeriodProfit - dividendsTotal;
+  var totalEquity = capitalTotal + partnerCurrentTotal + reservesTotal + retainedComprehensive;
   var totalLiabEquity = totalLiabilities + totalEquity;
-
   var balance_sheet = {
     _allAccounts: accounts,
     assets: {
@@ -1760,12 +1799,16 @@ function computeStatements(accounts, tbTotals){
       total_liabilities: totalLiabilities
     },
     equity: {
-      total_equity: totalEquity
+      total_equity: totalEquity,
+      retained_base: retainedTotal,
+      full_period_profit: fullPeriodProfit,
+      retained_comprehensive: retainedComprehensive
     },
     total_liabilities_and_equity: totalLiabEquity,
     is_balanced: Math.abs(totalAssets - totalLiabEquity) < 1,
     difference: totalAssets - totalLiabEquity,
-    net_income: netIncome
+    net_income: netIncome,
+    full_period_profit: fullPeriodProfit
   };
 
   // ---- Cash Flow ----
@@ -1868,8 +1911,23 @@ function computeStatements(accounts, tbTotals){
 
 function generateStatements(){
   var totals = updateTotals();
-  var accounts = rows.filter(function(r) { return r.name && r.name.trim() !== '' && (r.debit || r.credit); }).map(function(r) {
-    return {name:r.name, debit:Number(r.debit)||0, credit:Number(r.credit)||0, cat:r.cat};
+  var accounts = rows.filter(function(r) {
+    if (!r.name || !r.name.trim()) return false;
+    var hasPrimary = (Number(r.debit) || 0) || (Number(r.credit) || 0);
+    var hasEnd = (Number(r.endDebit) || 0) || (Number(r.endCredit) || 0);
+    var hasPeriod = (Number(r.periodDebit) || 0) || (Number(r.periodCredit) || 0);
+    return hasPrimary || hasEnd || hasPeriod;
+  }).map(function(r) {
+    return {
+      name: r.name,
+      debit: Number(r.debit) || 0,
+      credit: Number(r.credit) || 0,
+      cat: r.cat,
+      periodDebit: r.periodDebit != null ? Number(r.periodDebit) || 0 : Number(r.debit) || 0,
+      periodCredit: r.periodCredit != null ? Number(r.periodCredit) || 0 : Number(r.credit) || 0,
+      endDebit: r.endDebit != null ? Number(r.endDebit) || 0 : Number(r.debit) || 0,
+      endCredit: r.endCredit != null ? Number(r.endCredit) || 0 : Number(r.credit) || 0
+    };
   });
 
   var errorBox = document.getElementById('errorBox');
@@ -2055,10 +2113,11 @@ function exportToExcel() {
   var netIncome = data.income_statement.net_income || 0;
   var retainedBase = sumCatExcel('retained');
   var divX = sumCatExcel('dividends');
-  pushRow(balanceData, balanceMeta, 'data', 'أرباح مبقاة (رصيد أول المدة / من الميزان)', retainedBase);
-  pushRow(balanceData, balanceMeta, 'data', 'ربح (خسارة) الفترة الحالية', netIncome);
+  var fullPeriodProfitX = (data.full_period_profit != null) ? data.full_period_profit : netIncome;
+  pushRow(balanceData, balanceMeta, 'data', 'أرباح مبقاة (من الميزان)', retainedBase);
+  pushRow(balanceData, balanceMeta, 'data', 'أرباح (خسائر) الفترة غير المُقفلة (شاملة)', fullPeriodProfitX);
   if (divX) pushRow(balanceData, balanceMeta, 'data', 'توزيعات أرباح', -Math.abs(divX));
-  var retainedComprehensive = retainedBase + netIncome - divX;
+  var retainedComprehensive = retainedBase + fullPeriodProfitX - divX;
   pushRow(balanceData, balanceMeta, 'subtotal', 'أرباح مبقاة شاملة الفترة', retainedComprehensive);
   var totalEquity = sumCatExcel('capital') + sumCatExcel('partner_current') + sumCatExcel('reserves') + retainedComprehensive;
   pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي حقوق الملكية', totalEquity);
