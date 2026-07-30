@@ -440,7 +440,7 @@
   </section>
 
   <div class="developer-footer">
-    <div class="dev-name">اعداد وتطوير: أحمد عبدالكريم</div>
+    <div class="dev-name">أ. أحمد عبدالكريم</div>
     <div class="dev-info">
       <span>📧 <a href="mailto:mr.ahmed22296@gmail.com">mr.ahmed22296@gmail.com</a></span>
       <span>📱 <a href="tel:+96560085043">60085043</a> / <a href="tel:+201201487209">01201487209</a></span>
@@ -2636,13 +2636,33 @@ function exportToPDF() {
   var company = (document.getElementById('companyName') || {}).value || 'الشركة';
   var period = (document.getElementById('periodLabel') || {}).value || '';
 
-  var pages = [
-    { title: 'قائمة الدخل', html: renderIncomeStatement(data.income_statement) },
-    { title: 'قائمة المركز المالي', html: renderBalanceSheet(data.balance_sheet) },
-    { title: 'قائمة التدفقات النقدية', html: renderCashFlow(data.cash_flow) },
-    { title: 'الإيضاحات المحاسبية', html: renderNotes(data.notes) },
-    { title: 'التقرير التحليلي', html: renderAnalysis(data.analytical_report) }
+  var financialPages = [
+    { title: 'قائمة الدخل', desc: 'الربح أو الخسارة للفترة', html: renderIncomeStatement(data.income_statement) },
+    { title: 'قائمة المركز المالي', desc: 'الأصول والالتزامات وحقوق الملكية', html: renderBalanceSheet(data.balance_sheet) },
+    { title: 'قائمة التدفقات النقدية', desc: 'التدفقات التشغيلية والاستثمارية والتمويلية', html: renderCashFlow(data.cash_flow) },
+    { title: 'الإيضاحات المحاسبية', desc: 'السياسات والتفاصيل الإضافية', html: renderNotes(data.notes) },
+    { title: 'التقرير التحليلي', desc: 'النسب والملاحظات والفرضيات', html: renderAnalysis(data.analytical_report) }
   ];
+
+  var indexHtml = '<table class="stmt-table"><thead><tr>' +
+    '<th style="text-align:right;padding:9px 6px;border-bottom:2px solid var(--brass);font-family:Cairo,sans-serif;">القائمة</th>' +
+    '<th style="text-align:right;padding:9px 6px;border-bottom:2px solid var(--brass);font-family:Cairo,sans-serif;">الوصف</th>' +
+    '<th style="text-align:left;padding:9px 6px;border-bottom:2px solid var(--brass);font-family:Cairo,sans-serif;">الصفحة</th>' +
+    '</tr></thead><tbody>';
+  financialPages.forEach(function(p, i) {
+    indexHtml +=
+      '<tr>' +
+        '<td style="padding:10px 6px;border-bottom:1px dashed var(--paper-line);font-weight:700;">' + p.title + '</td>' +
+        '<td style="padding:10px 6px;border-bottom:1px dashed var(--paper-line);color:var(--ink-soft);">' + p.desc + '</td>' +
+        '<td class="num" style="padding:10px 6px;border-bottom:1px dashed var(--paper-line);text-align:left;">' + (i + 2) + '</td>' +
+      '</tr>';
+  });
+  indexHtml += '</tbody></table>';
+  indexHtml += '<p style="margin-top:26px;font-size:12px;color:var(--ink-soft);text-align:center;line-height:1.8;">تم التوليد بواسطة مولد القوائم المالية<br>أ. أحمد عبدالكريم — mr.ahmed22296@gmail.com</p>';
+
+  var pages = [
+    { title: 'فهرس القوائم المالية', html: indexHtml }
+  ].concat(financialPages);
 
   var host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-10000px;top:0;width:800px;background:#fff;z-index:-1;';
