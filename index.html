@@ -1782,91 +1782,147 @@ function exportToPDF() {
     alert('الرجاء توليد القوائم المالية أولاً.');
     return;
   }
-  
+
   var data = lastGeneratedData;
-  var printContainer = document.getElementById('pdfPrintContent');
-  printContainer.innerHTML = '';
-  printContainer.style.display = 'block';
-  printContainer.className = 'pdf-print-content';
-  
-  // وظيفة مساعدة لإنشاء صفحة PDF
-  function createPage(title, contentHtml, pageNum, totalPages) {
-    return '<div class="pdf-page">' +
-      '<div class="page-header"><h2>' + title + '</h2></div>' +
-      '<div>' + contentHtml + '</div>' +
-      '<div class="page-footer">' + title + ' — صفحة ' + pageNum + ' من ' + totalPages +
-      '<br>تم التوليد بواسطة مولد القوائم المالية | أ. أحمد عبدالكريم</div>' +
-      '</div>';
+  var btn = document.getElementById('exportPdfBtn');
+  var oldLabel = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ جاري إعداد PDF...';
   }
-  
-  // ====== صفحة 1: الفهرس ======
-  var indexHtml = '<div class="pdf-page" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">' +
-    '<h1 style="color:#16241C;font-size:32px;margin-bottom:5px;font-family:\'Cairo\',sans-serif;">القوائم المالية</h1>' +
-    '<h2 style="color:#A9782E;font-size:22px;font-weight:400;margin-bottom:30px;">فهرس المحتويات</h2>' +
-    '<div style="border-bottom:3px solid #A9782E;width:80px;margin:0 auto 30px;"></div>' +
-    '<div style="text-align:right;max-width:500px;margin:0 auto;font-size:18px;line-height:3;">' +
-    '<p>📊 <strong>قائمة الدخل</strong> — صفحة 2</p>' +
-    '<p>📊 <strong>المركز المالي</strong> — صفحة 3</p>' +
-    '<p>📊 <strong>قائمة التدفقات النقدية</strong> — صفحة 4</p>' +
-    '<p>📊 <strong>الإيضاحات المحاسبية</strong> — صفحة 5</p>' +
-    '<p>📊 <strong>التقرير التحليلي</strong> — صفحة 6</p>' +
-    '<p>📊 <strong>ملخص ميزان المراجعة</strong> — صفحة 7</p>' +
-    '</div>' +
-    '<div style="margin-top:40px;padding-top:20px;border-top:2px solid #A9782E;font-size:12px;color:#7A8F7A;">' +
-    '<p>تم التوليد بواسطة مولد القوائم المالية</p>' +
-    '<p>أ. أحمد عبدالكريم — mr.ahmed22296@gmail.com — 60085043 / 01201487209</p>' +
-    '<p style="margin-top:10px;font-size:11px;">© 2026 جميع الحقوق محفوظة</p>' +
-    '</div></div>';
-  printContainer.innerHTML = indexHtml;
-  
-  // ====== صفحة 2: قائمة الدخل ======
-  var incomeHtml = renderIncomeStatement(data.income_statement);
-  printContainer.innerHTML += createPage('قائمة الدخل', incomeHtml, 2, 7);
-  
-  // ====== صفحة 3: المركز المالي ======
-  var balanceHtml = renderBalanceSheet(data.balance_sheet);
-  printContainer.innerHTML += createPage('المركز المالي', balanceHtml, 3, 7);
-  
-  // ====== صفحة 4: قائمة التدفقات النقدية ======
-  var cashflowHtml = renderCashFlow(data.cash_flow);
-  printContainer.innerHTML += createPage('قائمة التدفقات النقدية', cashflowHtml, 4, 7);
-  
-  // ====== صفحة 5: الإيضاحات المحاسبية ======
-  var notesHtml = renderNotes(data);
-  printContainer.innerHTML += createPage('الإيضاحات المحاسبية', notesHtml, 5, 7);
-  
-  // ====== صفحة 6: التقرير التحليلي ======
-  var analysisHtml = renderAnalysis(data.analytical_report);
-  printContainer.innerHTML += createPage('التقرير التحليلي', analysisHtml, 6, 7);
-  
-  // ====== صفحة 7: ملخص ميزان المراجعة ======
-  var tbHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
-  tbHtml += '<thead><tr style="border-bottom:2px solid #A9782E;"><th style="padding:6px 4px;text-align:right;">#</th><th style="padding:6px 4px;text-align:right;">اسم الحساب</th><th style="padding:6px 4px;text-align:left;">مدين</th><th style="padding:6px 4px;text-align:left;">دائن</th><th style="padding:6px 4px;text-align:right;">التصنيف</th></tr></thead><tbody>';
-  rows.forEach(function(r, i) {
-    if (r.name && r.name.trim() !== '') {
-      tbHtml += '<tr style="border-bottom:1px solid #ddd;"><td style="padding:4px 3px;">' + (i+1) + '</td><td style="padding:4px 3px;">' + esc(r.name) + '</td><td style="padding:4px 3px;text-align:left;font-family:\'IBM Plex Mono\',monospace;">' + fmt(r.debit) + '</td><td style="padding:4px 3px;text-align:left;font-family:\'IBM Plex Mono\',monospace;">' + fmt(r.credit) + '</td><td style="padding:4px 3px;">' + (r.cat || 'غير مصنف') + '</td></tr>';
-    }
+
+  // بناء صفحات منفصلة — كل قائمة في صفحة واحدة بالكامل
+  function buildTbHtml() {
+    var tbHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    tbHtml += '<thead><tr style="border-bottom:2px solid #A9782E;"><th style="padding:5px 3px;text-align:right;">#</th><th style="padding:5px 3px;text-align:right;">اسم الحساب</th><th style="padding:5px 3px;text-align:left;">مدين</th><th style="padding:5px 3px;text-align:left;">دائن</th><th style="padding:5px 3px;text-align:right;">التصنيف</th></tr></thead><tbody>';
+    rows.forEach(function(r, i) {
+      if (r.name && r.name.trim() !== '') {
+        tbHtml += '<tr style="border-bottom:1px solid #ddd;"><td style="padding:3px;">' + (i+1) + '</td><td style="padding:3px;">' + esc(r.name) + '</td><td style="padding:3px;text-align:left;font-family:Consolas,monospace;">' + fmt(r.debit) + '</td><td style="padding:3px;text-align:left;font-family:Consolas,monospace;">' + fmt(r.credit) + '</td><td style="padding:3px;">' + (r.cat || 'غير مصنف') + '</td></tr>';
+      }
+    });
+    tbHtml += '</tbody></table>';
+    var totalDebit = rows.reduce(function(s, r) { return s + (Number(r.debit) || 0); }, 0);
+    var totalCredit = rows.reduce(function(s, r) { return s + (Number(r.credit) || 0); }, 0);
+    var diff = totalDebit - totalCredit;
+    tbHtml += '<div style="margin-top:12px;font-size:12px;">';
+    tbHtml += '<span style="margin-left:12px;">مدين: <b>' + fmt(totalDebit) + '</b></span>';
+    tbHtml += '<span style="margin-left:12px;">دائن: <b>' + fmt(totalCredit) + '</b></span>';
+    tbHtml += '<span style="margin-left:12px;">الفرق: <b>' + fmt(diff) + '</b></span>';
+    tbHtml += '<span style="font-weight:700;">' + (Math.abs(diff) < 0.01 ? ' ✅ متوازن' : ' ⚠ غير متوازن') + '</span>';
+    tbHtml += '</div>';
+    return tbHtml;
+  }
+
+  var pages = [
+    {
+      title: 'فهرس المحتويات',
+      html: '<div style="text-align:center;padding:40px 20px;">' +
+        '<h1 style="color:#16241C;font-size:28px;margin:0 0 8px;font-family:Cairo,Tahoma,sans-serif;">القوائم المالية</h1>' +
+        '<h2 style="color:#A9782E;font-size:18px;font-weight:400;margin:0 0 24px;">فهرس المحتويات</h2>' +
+        '<div style="border-bottom:3px solid #A9782E;width:70px;margin:0 auto 28px;"></div>' +
+        '<div style="text-align:right;max-width:420px;margin:0 auto;font-size:16px;line-height:2.6;">' +
+        '<div>١ — قائمة الربح أو الخسارة (IAS 1)</div>' +
+        '<div>٢ — قائمة المركز المالي (IAS 1)</div>' +
+        '<div>٣ — قائمة التدفقات النقدية (IAS 7)</div>' +
+        '<div>٤ — الإيضاحات المحاسبية</div>' +
+        '<div>٥ — التقرير التحليلي</div>' +
+        '<div>٦ — ملخص ميزان المراجعة</div>' +
+        '</div>' +
+        '<div style="margin-top:36px;padding-top:16px;border-top:2px solid #A9782E;font-size:11px;color:#7A8F7A;">' +
+        '<div>تم التوليد بواسطة مولد القوائم المالية</div>' +
+        '<div>أ. أحمد عبدالكريم — mr.ahmed22296@gmail.com</div>' +
+        '</div></div>'
+    },
+    { title: 'قائمة الربح أو الخسارة', html: renderIncomeStatement(data.income_statement) },
+    { title: 'قائمة المركز المالي', html: renderBalanceSheet(data.balance_sheet) },
+    { title: 'قائمة التدفقات النقدية', html: renderCashFlow(data.cash_flow) },
+    { title: 'الإيضاحات المحاسبية', html: renderNotes(data) },
+    { title: 'التقرير التحليلي', html: renderAnalysis(data.analytical_report) },
+    { title: 'ملخص ميزان المراجعة', html: buildTbHtml() }
+  ];
+
+  // حاوية مخفية لرسم كل صفحة على حدة
+  var host = document.createElement('div');
+  host.id = 'pdfRenderHost';
+  host.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:#fff;direction:rtl;font-family:Tajawal,Tahoma,sans-serif;color:#16241C;z-index:-1;';
+  document.body.appendChild(host);
+
+  var JsPDF = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+  if (!JsPDF || typeof html2canvas !== 'function') {
+    document.body.removeChild(host);
+    if (btn) { btn.disabled = false; btn.innerHTML = oldLabel; }
+    alert('تعذّر تحميل مكتبات PDF. تحقق من الاتصال بالإنترنت ثم أعد المحاولة.');
+    return;
+  }
+
+  var pdf = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  var pageW = pdf.internal.pageSize.getWidth();
+  var pageH = pdf.internal.pageSize.getHeight();
+  var margin = 10; // mm
+  var usableW = pageW - margin * 2;
+  var usableH = pageH - margin * 2;
+
+  function renderPage(page, index) {
+    return new Promise(function(resolve, reject) {
+      host.innerHTML = '';
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'width:794px;box-sizing:border-box;padding:28px 32px;background:#fff;';
+      wrap.innerHTML =
+        '<div style="text-align:center;border-bottom:3px solid #A9782E;padding-bottom:10px;margin-bottom:16px;">' +
+          '<h2 style="margin:0;font-size:22px;color:#16241C;font-family:Cairo,Tahoma,sans-serif;">' + page.title + '</h2>' +
+        '</div>' +
+        '<div class="pdf-body">' + page.html + '</div>' +
+        '<div style="margin-top:18px;padding-top:8px;border-top:1px solid #ddd;text-align:center;font-size:10px;color:#7A8F7A;">' +
+          page.title + ' — صفحة ' + (index + 1) + ' من ' + pages.length +
+          '<br>مولد القوائم المالية | أ. أحمد عبدالكريم' +
+        '</div>';
+      host.appendChild(wrap);
+
+      // انتظار الخطوط/التخطيط
+      requestAnimationFrame(function() {
+        html2canvas(wrap, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          windowWidth: 794
+        }).then(function(canvas) {
+          var imgData = canvas.toDataURL('image/jpeg', 0.92);
+          var imgW = usableW;
+          var imgH = (canvas.height * usableW) / canvas.width;
+
+          // إن تجاوزت القائمة ارتفاع الصفحة — صغّرها لتبقى كاملة في صفحة واحدة
+          if (imgH > usableH) {
+            var scale = usableH / imgH;
+            imgW = imgW * scale;
+            imgH = usableH;
+          }
+
+          if (index > 0) pdf.addPage();
+          var x = margin + (usableW - imgW) / 2;
+          pdf.addImage(imgData, 'JPEG', x, margin, imgW, imgH);
+          resolve();
+        }).catch(reject);
+      });
+    });
+  }
+
+  // تسلسل الصفحات واحدة تلو الأخرى
+  var chain = Promise.resolve();
+  pages.forEach(function(page, i) {
+    chain = chain.then(function() { return renderPage(page, i); });
   });
-  tbHtml += '</tbody></table>';
-  var totalDebit = rows.reduce(function(s, r) { return s + (Number(r.debit) || 0); }, 0);
-  var totalCredit = rows.reduce(function(s, r) { return s + (Number(r.credit) || 0); }, 0);
-  var diff = totalDebit - totalCredit;
-  tbHtml += '<div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;font-size:13px;">';
-  tbHtml += '<div style="background:#f5f0e8;border-radius:6px;padding:8px 14px;">إجمالي المدين: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(totalDebit) + '</strong></div>';
-  tbHtml += '<div style="background:#f5f0e8;border-radius:6px;padding:8px 14px;">إجمالي الدائن: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(totalCredit) + '</strong></div>';
-  tbHtml += '<div style="background:#f5f0e8;border-radius:6px;padding:8px 14px;">الفرق: <strong style="font-family:\'IBM Plex Mono\',monospace;">' + fmt(diff) + '</strong></div>';
-  tbHtml += '<div style="background:' + (Math.abs(diff) < 0.01 ? '#E4F1E9' : '#F7E7E5') + ';border-radius:6px;padding:8px 14px;font-weight:700;">' + (Math.abs(diff) < 0.01 ? '✅ متوازن' : '⚠ غير متوازن') + '</div>';
-  tbHtml += '</div>';
-  
-  printContainer.innerHTML += createPage('ملخص ميزان المراجعة', tbHtml, 7, 7);
-  
-  // عرض صفحة الطباعة
-  window.print();
-  
-  // إعادة إخفاء المحتوى بعد الطباعة
-  setTimeout(function() {
-    printContainer.style.display = 'none';
-  }, 1000);
+
+  chain.then(function() {
+    pdf.save('القوائم_المالية.pdf');
+    document.body.removeChild(host);
+    if (btn) { btn.disabled = false; btn.innerHTML = oldLabel; }
+  }).catch(function(err) {
+    console.error(err);
+    if (host.parentNode) document.body.removeChild(host);
+    if (btn) { btn.disabled = false; btn.innerHTML = oldLabel; }
+    alert('حدث خطأ أثناء إنشاء PDF: ' + (err && err.message ? err.message : err));
+  });
 }
 
 // بدء التطبيق بدون مثال - صف واحد فارغ
