@@ -1507,9 +1507,9 @@ function renderIncomeStatement(d){
 // ====== دالة عرض المركز المالي بالترتيب المطلوب ======
 function renderBalanceSheet(d) {
   if (!d) return '<p>لا توجد بيانات.</p>';
-  
+
   var balanced = d.is_balanced !== false;
-  var html = '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">قائمة المركز المالي — وفقاً لمعيار المحاسبة الدولي IAS 1 (تصنيف متداول / غير متداول)</p>';
+  var html = '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">قائمة المركز المالي</p>';
   html += '<span class="balance-check-pill ' + (balanced ? 'ok' : 'bad') + '">' + (balanced ? '✅ الأصول = الالتزامات + حقوق الملكية ✓' : '⚠️ عدم توازن — الفرق ' + fmt(Math.abs(d.difference || 0))) + '</span>';
 
   var allAccounts = d._allAccounts || [];
@@ -1519,7 +1519,6 @@ function renderBalanceSheet(d) {
     if (!key) key = a.cat || '';
     if (!catMap[key]) catMap[key] = [];
     catMap[key].push(a);
-    // احتفظ أيضاً بالمفتاح الأصلي إن اختلف
     if (a.cat && a.cat !== key) {
       if (!catMap[a.cat]) catMap[a.cat] = [];
       catMap[a.cat].push(a);
@@ -1530,7 +1529,13 @@ function renderBalanceSheet(d) {
     return (catMap[cat] || []).reduce(function(s, a) { return s + netAmount(a); }, 0);
   }
 
-  function appendCatLines(cats) {
+  function line(label, amount, hideZero) {
+    if (hideZero && Math.abs(amount) < 0.00001) return 0;
+    html += '<tr><td>' + esc(label) + '</td><td class="num">' + fmt(amount) + '</td></tr>';
+    return amount;
+  }
+
+  function linesFromCats(cats) {
     var total = 0;
     cats.forEach(function(cat) {
       (catMap[cat] || []).forEach(function(a) {
@@ -1542,38 +1547,103 @@ function renderBalanceSheet(d) {
     return total;
   }
 
-  // —— الأصول ——
+  // ========== الأصول ==========
   html += sectionTitle('الأصول');
+
+  // --- الأصول المتداولة (بنفس ترتيب النموذج) ---
   html += sectionTitle('الأصول المتداولة');
   html += '<table class="stmt-table"><tbody>';
-  var currentTotal = appendCatLines(['cash', 'trading_investment', 'ar', 'other_ca', 'inventory', 'prepaid_to_supplier', 'prepaid', 'related_party', 'refundable_deposit']);
+  var cashT = sumCatLocal('cash');
+  var arT = sumCatLocal('ar');
+  var otherCaT = sumCatLocal('other_ca');
+  var invT = sumCatLocal('inventory');
+  var prepaidSupT = sumCatLocal('prepaid_to_supplier');
+  var prepaidT = sumCatLocal('prepaid');
+  var relatedT = sumCatLocal('related_party');
+  var refundT = sumCatLocal('refundable_deposit');
+  var tradeInvT = sumCatLocal('trading_investment');
+
+  // عرض تفصيلي تحت كل بند رئيسي إن وُجدت حسابات
+  function groupBlock(title, cats) {
+    var items = [];
+    cats.forEach(function(c) { (catMap[c] || []).forEach(function(a) { items.push(a); }); });
+    var total = items.reduce(function(s, a) { return s + netAmount(a); }, 0);
+    if (!items.length) {
+      // لا نعرض بنداً فارغاً بصفر إلا إذا رغبت لاحقاً
+      return 0;
+    }
+    if (items.length === 1) {
+      html += '<tr><td>' + esc(title) + (items[0].name !== title ? ' — ' + esc(items[0].name) : '') + '</td><td class="num">' + fmt(total) + '</td></tr>';
+    } else {
+      html += '<tr><td><strong>' + esc(title) + '</strong></td><td class="num">' + fmt(total) + '</td></tr>';
+      items.forEach(function(a) {
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+      });
+    }
+    return total;
+  }
+
+  // ترتيب مطابق للنموذج المرسل
+  var currentTotal = 0;
+  currentTotal += groupBlock('النقد والنقد المعادل', ['cash']);
+  currentTotal += groupBlock('مدينون تجاريون', ['ar']);
+  currentTotal += groupBlock('الحسابات المدينة الأخرى', ['other_ca']);
+  currentTotal += groupBlock('المخزون', ['inventory']);
+  currentTotal += groupBlock('دفعات مقدمة', ['prepaid_to_supplier']);
+  currentTotal += groupBlock('مصروفات مدفوعة مقدماً', ['prepaid']);
+  currentTotal += groupBlock('مستحق من / (إلى) اطراف ذات صلة', ['related_party']);
+  currentTotal += groupBlock('تأمينات مستردة', ['refundable_deposit']);
+  currentTotal += groupBlock('استثمارات تداول', ['trading_investment']);
   html += subtotalRow('إجمالي الأصول المتداولة', currentTotal);
   html += '</tbody></table>';
 
+  // --- الأصول غير المتداولة ---
   html += sectionTitle('الأصول غير المتداولة');
   html += '<table class="stmt-table"><tbody>';
-  var ppeItems = catMap['ppe'] || [];
-  ppeItems.forEach(function(a) {
-    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
-  });
-  (catMap['accum_dep'] || []).forEach(function(a) {
-    html += '<tr><td>' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
-  });
-  var netPPE = sumCatLocal('ppe') - sumCatLocal('accum_dep');
-  if (ppeItems.length || (catMap['accum_dep'] || []).length) {
-    html += subtotalRow('صافي الممتلكات والمعدات', netPPE);
+  var ppeCost = sumCatLocal('ppe');
+  var accumDep = sumCatLocal('accum_dep');
+  var netPPE = ppeCost - accumDep;
+  var intCost = sumCatLocal('intangible');
+  var accumAm = sumCatLocal('accum_amort');
+  var netInt = intCost - accumAm;
+  var otherNca = sumCatLocal('other_nca');
+
+  if (ppeCost || accumDep) {
+    html += subtotalRow('صافي الممتلكات والمعدات الثابتة', netPPE);
+    if (ppeCost) {
+      html += '<tr><td>الممتلكات والمعدات الثابتة بالتكلفة التاريخية</td><td class="num">' + fmt(ppeCost) + '</td></tr>';
+      (catMap['ppe'] || []).forEach(function(a) {
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+      });
+    }
+    if (accumDep) {
+      html += '<tr><td>مجمع الاستهلاك</td><td class="num">(' + fmt(Math.abs(accumDep)) + ')</td></tr>';
+      (catMap['accum_dep'] || []).forEach(function(a) {
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
+      });
+    }
   }
-  (catMap['intangible'] || []).forEach(function(a) {
-    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
-  });
-  (catMap['accum_amort'] || []).forEach(function(a) {
-    html += '<tr><td>' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
-  });
-  var netInt = sumCatLocal('intangible') - sumCatLocal('accum_amort');
-  if ((catMap['intangible'] || []).length || (catMap['accum_amort'] || []).length) {
-    html += subtotalRow('صافي الأصول غير الملموسة', netInt);
+  if (intCost || accumAm) {
+    html += subtotalRow('صافي الأصول الثابتة غير الملموسة', netInt);
+    if (intCost) {
+      html += '<tr><td>الأصول الثابتة غير الملموسة بالتكلفة التاريخية</td><td class="num">' + fmt(intCost) + '</td></tr>';
+      (catMap['intangible'] || []).forEach(function(a) {
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+      });
+    }
+    if (accumAm) {
+      html += '<tr><td>مجمع الإطفاءات</td><td class="num">(' + fmt(Math.abs(accumAm)) + ')</td></tr>';
+      (catMap['accum_amort'] || []).forEach(function(a) {
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
+      });
+    }
   }
-  var otherNca = appendCatLines(['other_nca']);
+  if (otherNca) {
+    html += '<tr><td>ودائع ثابتة (أكثر من سنة)</td><td class="num">' + fmt(otherNca) + '</td></tr>';
+    (catMap['other_nca'] || []).forEach(function(a) {
+      html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+    });
+  }
   var nonCurrentTotal = netPPE + netInt + otherNca;
   html += subtotalRow('إجمالي الأصول غير المتداولة', nonCurrentTotal);
   html += '</tbody></table>';
@@ -1581,54 +1651,98 @@ function renderBalanceSheet(d) {
   var totalAssets = currentTotal + nonCurrentTotal;
   html += '<table class="stmt-table"><tbody>' + subtotalRow('إجمالي الأصول', totalAssets, true) + '</tbody></table>';
 
-  // —— حقوق الملكية أولاً ثم الالتزامات (عرض شائع وفق IAS 1) ——
-  html += sectionTitle('حقوق الملكية');
-  html += '<table class="stmt-table"><tbody>';
-  appendCatLines(['capital', 'partner_current', 'reserves']);
-  var retainedBase = (d.equity && d.equity.retained_base != null) ? d.equity.retained_base : sumCatLocal('retained');
-  var fullPeriodProfit = (d.full_period_profit != null) ? d.full_period_profit : (d.net_income || 0);
-  var divTotal = sumCatLocal('dividends');
-  (catMap['retained'] || []).forEach(function(a) {
-    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
-  });
-  if (!(catMap['retained'] || []).length && retainedBase) {
-    html += '<tr><td>أرباح مبقاة (من الميزان)</td><td class="num">' + fmt(retainedBase) + '</td></tr>';
-  }
-  html += '<tr><td>أرباح (خسائر) الفترة غير المُقفلة (شاملة)</td><td class="num">' + fmt(fullPeriodProfit) + '</td></tr>';
-  if (divTotal) {
-    html += '<tr><td>توزيعات أرباح</td><td class="num">(' + fmt(Math.abs(divTotal)) + ')</td></tr>';
-  }
-  var retainedComprehensive = (d.equity && d.equity.retained_comprehensive != null)
-    ? d.equity.retained_comprehensive
-    : (retainedBase + fullPeriodProfit - divTotal);
-  html += subtotalRow('أرباح مبقاة شاملة الفترة', retainedComprehensive);
-  var totalEquity = sumCatLocal('capital') + sumCatLocal('partner_current') + sumCatLocal('reserves') + retainedComprehensive;
-  html += subtotalRow('إجمالي حقوق الملكية', totalEquity);
-  html += '</tbody></table>';
-
-  // —— الالتزامات ——
+  // ========== الالتزامات (قبل حقوق الملكية كما في النموذج) ==========
   html += sectionTitle('الالتزامات');
-  html += sectionTitle('الالتزامات غير المتداولة');
-  html += '<table class="stmt-table"><tbody>';
-  (catMap['lt_loan'] || []).forEach(function(a) {
-    html += '<tr><td>' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
-  });
-  (catMap['deferred_finance'] || []).forEach(function(a) {
-    html += '<tr><td>' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
-  });
-  var nclTotal = (sumCatLocal('lt_loan') - sumCatLocal('deferred_finance')) + appendCatLines(['eosb', 'other_ncl']);
-  html += subtotalRow('إجمالي الالتزامات غير المتداولة', nclTotal);
-  html += '</tbody></table>';
 
-  html += sectionTitle('الالتزامات المتداولة');
+  // --- التزامات قصيرة الأجل / متداولة ---
+  html += sectionTitle('الالتزامات قصيرة الأجل');
   html += '<table class="stmt-table"><tbody>';
-  var clTotal = appendCatLines(['ap', 'related_party_payable', 'accrued', 'leave_provision', 'other_cl']);
+  var clTotal = 0;
+  clTotal += groupBlock('دائنون تجاريون', ['ap']);
+  clTotal += groupBlock('مستحق من / (إلى) اطراف ذات صلة', ['related_party_payable']);
+  clTotal += groupBlock('مصروفات مستحقة', ['accrued']);
+  clTotal += groupBlock('مخصص بدل إجازة', ['leave_provision']);
+  clTotal += groupBlock('حسابات دائنة أخرى', ['other_cl']);
   html += subtotalRow('إجمالي الالتزامات المتداولة', clTotal);
   html += '</tbody></table>';
 
+  // --- التزامات طويلة الأجل ---
+  html += sectionTitle('الالتزامات طويلة الأجل');
+  html += '<table class="stmt-table"><tbody>';
+  var ltLoan = sumCatLocal('lt_loan');
+  var defFin = sumCatLocal('deferred_finance');
+  var netLoans = ltLoan - defFin;
+  var eosb = sumCatLocal('eosb');
+  var otherNcl = sumCatLocal('other_ncl');
+
+  if (ltLoan || defFin) {
+    html += subtotalRow('صافي القروض طويلة الأجل', netLoans);
+    if (ltLoan) {
+      html += '<tr><td>قروض طويلة الأجل</td><td class="num">' + fmt(ltLoan) + '</td></tr>';
+      (catMap['lt_loan'] || []).forEach(function(a) {
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+      });
+    }
+    if (defFin) {
+      html += '<tr><td>تكلفة تمويلية مؤجلة</td><td class="num">(' + fmt(Math.abs(defFin)) + ')</td></tr>';
+      (catMap['deferred_finance'] || []).forEach(function(a) {
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
+      });
+    }
+  }
+  if (eosb) {
+    html += '<tr><td>مخصص مكافأة نهاية الخدمة</td><td class="num">' + fmt(eosb) + '</td></tr>';
+    (catMap['eosb'] || []).forEach(function(a) {
+      html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+    });
+  }
+  if (otherNcl) {
+    html += '<tr><td>التزامات غير متداولة أخرى</td><td class="num">' + fmt(otherNcl) + '</td></tr>';
+  }
+  var nclTotal = netLoans + eosb + otherNcl;
+  html += subtotalRow('إجمالي الالتزامات غير المتداولة', nclTotal);
+  html += '</tbody></table>';
+
   var totalLiab = clTotal + nclTotal;
-  html += '<table class="stmt-table"><tbody>' + subtotalRow('إجمالي الالتزامات', totalLiab) + '</tbody></table>';
-  html += '<table class="stmt-table"><tbody>' + subtotalRow('إجمالي حقوق الملكية والالتزامات', totalEquity + totalLiab, true) + '</tbody></table>';
+
+  // ========== حقوق الملكية ==========
+  html += sectionTitle('حقوق الملكية');
+  html += '<table class="stmt-table"><tbody>';
+  var capitalT = sumCatLocal('capital');
+  var partnerT = sumCatLocal('partner_current');
+  var reservesT = sumCatLocal('reserves');
+  var retainedBase = (d.equity && d.equity.retained_base != null) ? d.equity.retained_base : sumCatLocal('retained');
+  var fullPeriodProfit = (d.full_period_profit != null) ? d.full_period_profit : (d.net_income || 0);
+  var divTotal = sumCatLocal('dividends');
+  var retainedComprehensive = (d.equity && d.equity.retained_comprehensive != null)
+    ? d.equity.retained_comprehensive
+    : (retainedBase + fullPeriodProfit - divTotal);
+
+  if (capitalT) {
+    html += '<tr><td>رأس المال</td><td class="num">' + fmt(capitalT) + '</td></tr>';
+    (catMap['capital'] || []).forEach(function(a) {
+      html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+    });
+  }
+  if (partnerT) {
+    html += '<tr><td>جاري الشركاء</td><td class="num">' + fmt(partnerT) + '</td></tr>';
+    (catMap['partner_current'] || []).forEach(function(a) {
+      html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+    });
+  }
+  if (reservesT) {
+    html += '<tr><td>احتياطيات</td><td class="num">' + fmt(reservesT) + '</td></tr>';
+  }
+  html += '<tr><td>أرباح محتفظ بها / (خسائر) متراكمة</td><td class="num">' + fmt(retainedBase) + '</td></tr>';
+  html += '<tr><td>الربح / (الخسارة) خلال الفترة</td><td class="num">' + fmt(fullPeriodProfit) + '</td></tr>';
+  if (divTotal) {
+    html += '<tr><td>توزيعات أرباح</td><td class="num">(' + fmt(Math.abs(divTotal)) + ')</td></tr>';
+  }
+  html += subtotalRow('إجمالي حقوق الملكية', capitalT + partnerT + reservesT + retainedComprehensive);
+  html += '</tbody></table>';
+
+  var totalEquity = capitalT + partnerT + reservesT + retainedComprehensive;
+  html += '<table class="stmt-table"><tbody>' + subtotalRow('إجمالي الالتزامات وحقوق الملكية', totalLiab + totalEquity, true) + '</tbody></table>';
 
   return html;
 }
@@ -2114,80 +2228,87 @@ function exportToExcel() {
     return (catMap[cat] || []).reduce(function(s, a) { return s + netAmount(a); }, 0);
   }
 
-  pushRow(balanceData, balanceMeta, 'title', 'قائمة المركز المالي (IAS 1)');
+  pushRow(balanceData, balanceMeta, 'title', 'قائمة المركز المالي');
   pushRow(balanceData, balanceMeta, 'header', 'البيان', 'المبلغ');
   pushRow(balanceData, balanceMeta, 'data', '', '');
 
+  // الأصول المتداولة — بنفس ترتيب النموذج
   pushRow(balanceData, balanceMeta, 'section', 'الأصول', '');
   pushRow(balanceData, balanceMeta, 'section', 'الأصول المتداولة', '');
-  pushRow(balanceData, balanceMeta, 'data', 'النقد وما في حكمه', sumCatExcel('cash'));
-  pushRow(balanceData, balanceMeta, 'data', 'استثمارات تداول', sumCatExcel('trading_investment'));
+  pushRow(balanceData, balanceMeta, 'data', 'النقد والنقد المعادل', sumCatExcel('cash'));
   pushRow(balanceData, balanceMeta, 'data', 'مدينون تجاريون', sumCatExcel('ar'));
-  pushRow(balanceData, balanceMeta, 'data', 'حسابات مدينة أخرى', sumCatExcel('other_ca'));
+  pushRow(balanceData, balanceMeta, 'data', 'الحسابات المدينة الأخرى', sumCatExcel('other_ca'));
   pushRow(balanceData, balanceMeta, 'data', 'المخزون', sumCatExcel('inventory'));
-  pushRow(balanceData, balanceMeta, 'data', 'دفعات مقدمة للموردين', sumCatExcel('prepaid_to_supplier'));
+  pushRow(balanceData, balanceMeta, 'data', 'دفعات مقدمة', sumCatExcel('prepaid_to_supplier'));
   pushRow(balanceData, balanceMeta, 'data', 'مصروفات مدفوعة مقدماً', sumCatExcel('prepaid'));
-  pushRow(balanceData, balanceMeta, 'data', 'مستحق من أطراف ذات علاقة', sumCatExcel('related_party'));
+  pushRow(balanceData, balanceMeta, 'data', 'مستحق من / (إلى) اطراف ذات صلة', sumCatExcel('related_party'));
   pushRow(balanceData, balanceMeta, 'data', 'تأمينات مستردة', sumCatExcel('refundable_deposit'));
+  pushRow(balanceData, balanceMeta, 'data', 'استثمارات تداول', sumCatExcel('trading_investment'));
   var currentTotal = sumCatExcel('cash') + sumCatExcel('ar') + sumCatExcel('other_ca') + sumCatExcel('inventory') + sumCatExcel('prepaid_to_supplier') + sumCatExcel('prepaid') + sumCatExcel('related_party') + sumCatExcel('refundable_deposit') + sumCatExcel('trading_investment');
   pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي الأصول المتداولة', currentTotal);
   pushRow(balanceData, balanceMeta, 'data', '', '');
 
+  // الأصول غير المتداولة
   pushRow(balanceData, balanceMeta, 'section', 'الأصول غير المتداولة', '');
   var ppeTotal = sumCatExcel('ppe');
   var accumDepTotal = sumCatExcel('accum_dep');
-  pushRow(balanceData, balanceMeta, 'data', 'الممتلكات والمعدات — التكلفة', ppeTotal);
-  pushRow(balanceData, balanceMeta, 'data', 'مجمع الإهلاك', -accumDepTotal);
-  pushRow(balanceData, balanceMeta, 'subtotal', 'صافي الممتلكات والمعدات', ppeTotal - accumDepTotal);
+  var netPPE = ppeTotal - accumDepTotal;
+  pushRow(balanceData, balanceMeta, 'subtotal', 'صافي الممتلكات والمعدات الثابتة', netPPE);
+  pushRow(balanceData, balanceMeta, 'data', 'الممتلكات والمعدات الثابتة بالتكلفة التاريخية', ppeTotal);
+  pushRow(balanceData, balanceMeta, 'data', 'مجمع الاستهلاك', -accumDepTotal);
   var intangibleTotal = sumCatExcel('intangible');
   var accumAmortTotal = sumCatExcel('accum_amort');
-  pushRow(balanceData, balanceMeta, 'data', 'أصول غير ملموسة — التكلفة', intangibleTotal);
-  pushRow(balanceData, balanceMeta, 'data', 'مجمع الإطفاء', -accumAmortTotal);
-  pushRow(balanceData, balanceMeta, 'subtotal', 'صافي الأصول غير الملموسة', intangibleTotal - accumAmortTotal);
-  pushRow(balanceData, balanceMeta, 'data', 'أصول غير متداولة أخرى', sumCatExcel('other_nca'));
-  var nonCurrentTotal = (ppeTotal - accumDepTotal) + (intangibleTotal - accumAmortTotal) + sumCatExcel('other_nca');
+  var netInt = intangibleTotal - accumAmortTotal;
+  pushRow(balanceData, balanceMeta, 'subtotal', 'صافي الأصول الثابتة غير الملموسة', netInt);
+  pushRow(balanceData, balanceMeta, 'data', 'الأصول الثابتة غير الملموسة بالتكلفة التاريخية', intangibleTotal);
+  pushRow(balanceData, balanceMeta, 'data', 'مجمع الإطفاءات', -accumAmortTotal);
+  pushRow(balanceData, balanceMeta, 'data', 'ودائع ثابتة (أكثر من سنة)', sumCatExcel('other_nca'));
+  var nonCurrentTotal = netPPE + netInt + sumCatExcel('other_nca');
   pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي الأصول غير المتداولة', nonCurrentTotal);
   pushRow(balanceData, balanceMeta, 'grand', 'إجمالي الأصول', currentTotal + nonCurrentTotal);
   pushRow(balanceData, balanceMeta, 'data', '', '');
 
+  // الالتزامات قصيرة الأجل
+  pushRow(balanceData, balanceMeta, 'section', 'الالتزامات', '');
+  pushRow(balanceData, balanceMeta, 'section', 'الالتزامات قصيرة الأجل', '');
+  pushRow(balanceData, balanceMeta, 'data', 'دائنون تجاريون', sumCatExcel('ap'));
+  pushRow(balanceData, balanceMeta, 'data', 'مستحق من / (إلى) اطراف ذات صلة', sumCatExcel('related_party_payable'));
+  pushRow(balanceData, balanceMeta, 'data', 'مصروفات مستحقة', sumCatExcel('accrued'));
+  pushRow(balanceData, balanceMeta, 'data', 'مخصص بدل إجازة', sumCatExcel('leave_provision'));
+  pushRow(balanceData, balanceMeta, 'data', 'حسابات دائنة أخرى', sumCatExcel('other_cl'));
+  var clTotal = sumCatExcel('ap') + sumCatExcel('related_party_payable') + sumCatExcel('accrued') + sumCatExcel('leave_provision') + sumCatExcel('other_cl');
+  pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي الالتزامات المتداولة', clTotal);
+  pushRow(balanceData, balanceMeta, 'data', '', '');
+
+  // الالتزامات طويلة الأجل
+  pushRow(balanceData, balanceMeta, 'section', 'الالتزامات طويلة الأجل', '');
+  var ltLoanTotal = sumCatExcel('lt_loan');
+  var deferredFinanceTotal = sumCatExcel('deferred_finance');
+  var netLoans = ltLoanTotal - deferredFinanceTotal;
+  pushRow(balanceData, balanceMeta, 'subtotal', 'صافي القروض طويلة الأجل', netLoans);
+  pushRow(balanceData, balanceMeta, 'data', 'قروض طويلة الأجل', ltLoanTotal);
+  pushRow(balanceData, balanceMeta, 'data', 'تكلفة تمويلية مؤجلة', -deferredFinanceTotal);
+  pushRow(balanceData, balanceMeta, 'data', 'مخصص مكافأة نهاية الخدمة', sumCatExcel('eosb'));
+  var nclTotal = netLoans + sumCatExcel('eosb') + sumCatExcel('other_ncl');
+  pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي الالتزامات غير المتداولة', nclTotal);
+  pushRow(balanceData, balanceMeta, 'data', '', '');
+
+  // حقوق الملكية
   pushRow(balanceData, balanceMeta, 'section', 'حقوق الملكية', '');
   pushRow(balanceData, balanceMeta, 'data', 'رأس المال', sumCatExcel('capital'));
   pushRow(balanceData, balanceMeta, 'data', 'جاري الشركاء', sumCatExcel('partner_current'));
-  pushRow(balanceData, balanceMeta, 'data', 'احتياطيات', sumCatExcel('reserves'));
   var netIncome = data.income_statement.net_income || 0;
   var retainedBase = sumCatExcel('retained');
   var divX = sumCatExcel('dividends');
   var fullPeriodProfitX = (data.full_period_profit != null) ? data.full_period_profit : netIncome;
-  pushRow(balanceData, balanceMeta, 'data', 'أرباح مبقاة (من الميزان)', retainedBase);
-  pushRow(balanceData, balanceMeta, 'data', 'أرباح (خسائر) الفترة غير المُقفلة (شاملة)', fullPeriodProfitX);
+  pushRow(balanceData, balanceMeta, 'data', 'أرباح محتفظ بها / (خسائر) متراكمة', retainedBase);
+  pushRow(balanceData, balanceMeta, 'data', 'الربح / (الخسارة) خلال الفترة', fullPeriodProfitX);
   if (divX) pushRow(balanceData, balanceMeta, 'data', 'توزيعات أرباح', -Math.abs(divX));
   var retainedComprehensive = retainedBase + fullPeriodProfitX - divX;
-  pushRow(balanceData, balanceMeta, 'subtotal', 'أرباح مبقاة شاملة الفترة', retainedComprehensive);
+  pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي حقوق الملكية', sumCatExcel('capital') + sumCatExcel('partner_current') + sumCatExcel('reserves') + retainedComprehensive);
   var totalEquity = sumCatExcel('capital') + sumCatExcel('partner_current') + sumCatExcel('reserves') + retainedComprehensive;
-  pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي حقوق الملكية', totalEquity);
   pushRow(balanceData, balanceMeta, 'data', '', '');
-
-  pushRow(balanceData, balanceMeta, 'section', 'الالتزامات غير المتداولة', '');
-  var ltLoanTotal = sumCatExcel('lt_loan');
-  var deferredFinanceTotal = sumCatExcel('deferred_finance');
-  pushRow(balanceData, balanceMeta, 'data', 'قروض طويلة الأجل', ltLoanTotal);
-  pushRow(balanceData, balanceMeta, 'data', 'تكلفة تمويلية مؤجلة', -deferredFinanceTotal);
-  pushRow(balanceData, balanceMeta, 'data', 'مخصص مكافأة نهاية الخدمة', sumCatExcel('eosb'));
-  pushRow(balanceData, balanceMeta, 'data', 'التزامات غير متداولة أخرى', sumCatExcel('other_ncl'));
-  var nclTotal = (ltLoanTotal - deferredFinanceTotal) + sumCatExcel('eosb') + sumCatExcel('other_ncl');
-  pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي الالتزامات غير المتداولة', nclTotal);
-  pushRow(balanceData, balanceMeta, 'data', '', '');
-
-  pushRow(balanceData, balanceMeta, 'section', 'الالتزامات المتداولة', '');
-  pushRow(balanceData, balanceMeta, 'data', 'دائنون تجاريون', sumCatExcel('ap'));
-  pushRow(balanceData, balanceMeta, 'data', 'مستحق إلى أطراف ذات علاقة', sumCatExcel('related_party_payable'));
-  pushRow(balanceData, balanceMeta, 'data', 'مصروفات مستحقة', sumCatExcel('accrued'));
-  pushRow(balanceData, balanceMeta, 'data', 'مخصص بدل إجازة', sumCatExcel('leave_provision'));
-  pushRow(balanceData, balanceMeta, 'data', 'التزامات متداولة أخرى', sumCatExcel('other_cl'));
-  var clTotal = sumCatExcel('ap') + sumCatExcel('related_party_payable') + sumCatExcel('accrued') + sumCatExcel('leave_provision') + sumCatExcel('other_cl');
-  pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي الالتزامات المتداولة', clTotal);
-  pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي الالتزامات', clTotal + nclTotal);
-  pushRow(balanceData, balanceMeta, 'grand', 'إجمالي حقوق الملكية والالتزامات', clTotal + nclTotal + totalEquity);
+  pushRow(balanceData, balanceMeta, 'grand', 'إجمالي الالتزامات وحقوق الملكية', clTotal + nclTotal + totalEquity);
   pushRow(balanceData, balanceMeta, 'data', '', '');
   pushRow(balanceData, balanceMeta, 'data', 'حالة التوازن', bs.is_balanced ? 'متوازن ✓' : ('غير متوازن — الفرق: ' + Math.abs(bs.difference || 0)));
 
