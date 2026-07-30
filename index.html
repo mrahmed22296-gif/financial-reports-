@@ -1522,16 +1522,26 @@ function renderBalanceSheet(d) {
   // —— حقوق الملكية أولاً ثم الالتزامات (عرض شائع وفق IAS 1) ——
   html += sectionTitle('حقوق الملكية');
   html += '<table class="stmt-table"><tbody>';
-  appendCatLines(['capital', 'partner_current', 'reserves', 'retained']);
+  appendCatLines(['capital', 'partner_current', 'reserves']);
+  // الأرباح المبقاة: رصيد الميزان + ربح الفترة = شاملة الفترة
+  var retainedBase = sumCatLocal('retained');
   var netIncome = d.net_income || 0;
-  if (netIncome !== 0) {
-    html += '<tr><td>ربح (خسارة) الفترة</td><td class="num">' + fmt(netIncome) + '</td></tr>';
-  }
   var divTotal = sumCatLocal('dividends');
+  (catMap['retained'] || []).forEach(function(a) {
+    html += '<tr><td>' + esc(a.name) + ' (رصيد أول المدة / من الميزان)</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+  });
+  if (!(catMap['retained'] || []).length && retainedBase) {
+    html += '<tr><td>أرباح مبقاة (من الميزان)</td><td class="num">' + fmt(retainedBase) + '</td></tr>';
+  }
+  if (netIncome !== 0) {
+    html += '<tr><td>ربح (خسارة) الفترة الحالية</td><td class="num">' + fmt(netIncome) + '</td></tr>';
+  }
   if (divTotal) {
     html += '<tr><td>توزيعات أرباح</td><td class="num">(' + fmt(Math.abs(divTotal)) + ')</td></tr>';
   }
-  var totalEquity = sumCatLocal('capital') + sumCatLocal('partner_current') + sumCatLocal('reserves') + sumCatLocal('retained') + netIncome - divTotal;
+  var retainedComprehensive = retainedBase + netIncome - divTotal;
+  html += subtotalRow('أرباح مبقاة شاملة الفترة', retainedComprehensive);
+  var totalEquity = sumCatLocal('capital') + sumCatLocal('partner_current') + sumCatLocal('reserves') + retainedComprehensive;
   html += subtotalRow('إجمالي حقوق الملكية', totalEquity);
   html += '</tbody></table>';
 
@@ -1839,7 +1849,7 @@ function computeStatements(accounts, tbTotals){
   if(zeroRows.length) items_requiring_review.push('توجد حسابات بأرصدة صفرية — تأكد أنها مقصودة قبل الاعتماد النهائي.');
 
   var assumptions_used = [
-    'الرصيد الظاهر لحساب الأرباح المبقاة في ميزان المراجعة اعتُبر رصيداً افتتاحياً (أول المدة)، وأُضيف إليه صافي ربح الفترة للوصول للرصيد الختامي.',
+    'رصيد الأرباح المبقاة من ميزان المراجعة (أول المدة/قبل الإقفال) + صافي ربح الفترة الحالية − التوزيعات = الأرباح المبقاة الشاملة للفترة في قائمة المركز المالي.',
     'قائمة التدفقات النقدية معروضة بشكل جزئي (صافي الربح + الإهلاك المضاف)؛ إذ يتعذر احتساب التغيرات في بنود رأس المال العامل (المدينون، المخزون، الدائنون) أو حركة الأصول الثابتة والقروض دون توفر أرصدة الفترة السابقة للمقارنة. للحصول على قائمة تدفقات نقدية كاملة، يُرجى توفير ميزان مراجعة للفترة السابقة أيضاً.',
     'تم تصنيف أرصدة الموردين المدينة (ذات الرصيد المدين) كدفعات مقدمة للموردين ضمن الأصول المتداولة.',
     'تم تصنيف حسابات الشركاء الجارية (Partner Current Accounts) ضمن حقوق الملكية.'
@@ -2042,10 +2052,15 @@ function exportToExcel() {
   pushRow(balanceData, balanceMeta, 'data', 'رأس المال', sumCatExcel('capital'));
   pushRow(balanceData, balanceMeta, 'data', 'جاري الشركاء', sumCatExcel('partner_current'));
   pushRow(balanceData, balanceMeta, 'data', 'احتياطيات', sumCatExcel('reserves'));
-  pushRow(balanceData, balanceMeta, 'data', 'أرباح مبقاة / (خسائر متراكمة)', sumCatExcel('retained'));
   var netIncome = data.income_statement.net_income || 0;
-  pushRow(balanceData, balanceMeta, 'data', 'ربح (خسارة) الفترة', netIncome);
-  var totalEquity = sumCatExcel('capital') + sumCatExcel('partner_current') + sumCatExcel('reserves') + sumCatExcel('retained') + netIncome - sumCatExcel('dividends');
+  var retainedBase = sumCatExcel('retained');
+  var divX = sumCatExcel('dividends');
+  pushRow(balanceData, balanceMeta, 'data', 'أرباح مبقاة (رصيد أول المدة / من الميزان)', retainedBase);
+  pushRow(balanceData, balanceMeta, 'data', 'ربح (خسارة) الفترة الحالية', netIncome);
+  if (divX) pushRow(balanceData, balanceMeta, 'data', 'توزيعات أرباح', -Math.abs(divX));
+  var retainedComprehensive = retainedBase + netIncome - divX;
+  pushRow(balanceData, balanceMeta, 'subtotal', 'أرباح مبقاة شاملة الفترة', retainedComprehensive);
+  var totalEquity = sumCatExcel('capital') + sumCatExcel('partner_current') + sumCatExcel('reserves') + retainedComprehensive;
   pushRow(balanceData, balanceMeta, 'subtotal', 'إجمالي حقوق الملكية', totalEquity);
   pushRow(balanceData, balanceMeta, 'data', '', '');
 
