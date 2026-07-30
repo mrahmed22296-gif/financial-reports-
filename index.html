@@ -1458,7 +1458,9 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
 
 function linesRows(lines, negativeCheck){
   if(!Array.isArray(lines)) return '';
-  return lines.map(function(l) {
+  return lines.filter(function(l) {
+    return Math.abs(Number(l.amount) || 0) >= 0.00001;
+  }).map(function(l) {
     var neg = negativeCheck && Number(l.amount) < 0;
     return '<tr class="' + (neg?'negative':'') + '"><td>' + esc(l.label) + '</td><td class="num">' + fmt(l.amount) + '</td></tr>';
   }).join('');
@@ -1494,11 +1496,11 @@ function renderIncomeStatement(d){
     html += linesRows(d.operating_expenses.lines);
     if (d.operating_expenses.total !== undefined) html += subtotalRow('إجمالي المصروفات التشغيلية', d.operating_expenses.total);
   }
-  if (d.depreciation_amortization) html += '<tr><td>مصروف الإهلاك والإطفاء</td><td class="num">' + fmt(d.depreciation_amortization) + '</td></tr>';
+  if (d.depreciation_amortization && Math.abs(d.depreciation_amortization) >= 0.00001) html += '<tr><td>مصروف الإهلاك والإطفاء</td><td class="num">' + fmt(d.depreciation_amortization) + '</td></tr>';
   if (d.ebit !== undefined) html += subtotalRow('الربح التشغيلي', d.ebit);
-  if (d.finance_cost) html += '<tr><td>تكاليف التمويل</td><td class="num">' + fmt(d.finance_cost) + '</td></tr>';
+  if (d.finance_cost && Math.abs(d.finance_cost) >= 0.00001) html += '<tr><td>تكاليف التمويل</td><td class="num">' + fmt(d.finance_cost) + '</td></tr>';
   if (d.ebit !== undefined) html += subtotalRow('الربح قبل الضريبة / الزكاة', (d.ebit || 0) - (d.finance_cost || 0));
-  if (d.tax_zakat) html += '<tr><td>مصروف الضريبة / الزكاة</td><td class="num">' + fmt(d.tax_zakat) + '</td></tr>';
+  if (d.tax_zakat && Math.abs(d.tax_zakat) >= 0.00001) html += '<tr><td>مصروف الضريبة / الزكاة</td><td class="num">' + fmt(d.tax_zakat) + '</td></tr>';
   if (d.net_income !== undefined) html += subtotalRow('ربح (خسارة) الفترة', d.net_income, true);
   html += '</tbody></table>';
   return html;
@@ -1566,12 +1568,13 @@ function renderBalanceSheet(d) {
   // عرض تفصيلي تحت كل بند رئيسي إن وُجدت حسابات
   function groupBlock(title, cats) {
     var items = [];
-    cats.forEach(function(c) { (catMap[c] || []).forEach(function(a) { items.push(a); }); });
+    cats.forEach(function(c) {
+      (catMap[c] || []).forEach(function(a) {
+        if (Math.abs(netAmount(a)) >= 0.00001) items.push(a);
+      });
+    });
     var total = items.reduce(function(s, a) { return s + netAmount(a); }, 0);
-    if (!items.length) {
-      // لا نعرض بنداً فارغاً بصفر إلا إذا رغبت لاحقاً
-      return 0;
-    }
+    if (!items.length) return 0;
     if (items.length === 1) {
       html += '<tr><td>' + esc(title) + (items[0].name !== title ? ' — ' + esc(items[0].name) : '') + '</td><td class="num">' + fmt(total) + '</td></tr>';
     } else {
@@ -1613,12 +1616,14 @@ function renderBalanceSheet(d) {
     if (ppeCost) {
       html += '<tr><td>الممتلكات والمعدات الثابتة بالتكلفة التاريخية</td><td class="num">' + fmt(ppeCost) + '</td></tr>';
       (catMap['ppe'] || []).forEach(function(a) {
+        if (Math.abs(netAmount(a)) < 0.00001) return;
         html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
       });
     }
     if (accumDep) {
       html += '<tr><td>مجمع الاستهلاك</td><td class="num">(' + fmt(Math.abs(accumDep)) + ')</td></tr>';
       (catMap['accum_dep'] || []).forEach(function(a) {
+        if (Math.abs(netAmount(a)) < 0.00001) return;
         html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
       });
     }
@@ -1628,12 +1633,14 @@ function renderBalanceSheet(d) {
     if (intCost) {
       html += '<tr><td>الأصول الثابتة غير الملموسة بالتكلفة التاريخية</td><td class="num">' + fmt(intCost) + '</td></tr>';
       (catMap['intangible'] || []).forEach(function(a) {
+        if (Math.abs(netAmount(a)) < 0.00001) return;
         html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
       });
     }
     if (accumAm) {
       html += '<tr><td>مجمع الإطفاءات</td><td class="num">(' + fmt(Math.abs(accumAm)) + ')</td></tr>';
       (catMap['accum_amort'] || []).forEach(function(a) {
+        if (Math.abs(netAmount(a)) < 0.00001) return;
         html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
       });
     }
@@ -1641,7 +1648,8 @@ function renderBalanceSheet(d) {
   if (otherNca) {
     html += '<tr><td>ودائع ثابتة (أكثر من سنة)</td><td class="num">' + fmt(otherNca) + '</td></tr>';
     (catMap['other_nca'] || []).forEach(function(a) {
-      html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+        if (Math.abs(netAmount(a)) < 0.00001) return;
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
     });
   }
   var nonCurrentTotal = netPPE + netInt + otherNca;
@@ -1680,12 +1688,14 @@ function renderBalanceSheet(d) {
     if (ltLoan) {
       html += '<tr><td>قروض طويلة الأجل</td><td class="num">' + fmt(ltLoan) + '</td></tr>';
       (catMap['lt_loan'] || []).forEach(function(a) {
+        if (Math.abs(netAmount(a)) < 0.00001) return;
         html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
       });
     }
     if (defFin) {
       html += '<tr><td>تكلفة تمويلية مؤجلة</td><td class="num">(' + fmt(Math.abs(defFin)) + ')</td></tr>';
       (catMap['deferred_finance'] || []).forEach(function(a) {
+        if (Math.abs(netAmount(a)) < 0.00001) return;
         html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">(' + fmt(Math.abs(netAmount(a))) + ')</td></tr>';
       });
     }
@@ -1693,7 +1703,8 @@ function renderBalanceSheet(d) {
   if (eosb) {
     html += '<tr><td>مخصص مكافأة نهاية الخدمة</td><td class="num">' + fmt(eosb) + '</td></tr>';
     (catMap['eosb'] || []).forEach(function(a) {
-      html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+        if (Math.abs(netAmount(a)) < 0.00001) return;
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
     });
   }
   if (otherNcl) {
@@ -1721,13 +1732,15 @@ function renderBalanceSheet(d) {
   if (capitalT) {
     html += '<tr><td>رأس المال</td><td class="num">' + fmt(capitalT) + '</td></tr>';
     (catMap['capital'] || []).forEach(function(a) {
-      html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+        if (Math.abs(netAmount(a)) < 0.00001) return;
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
     });
   }
   if (partnerT) {
     html += '<tr><td>جاري الشركاء</td><td class="num">' + fmt(partnerT) + '</td></tr>';
     (catMap['partner_current'] || []).forEach(function(a) {
-      html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
+        if (Math.abs(netAmount(a)) < 0.00001) return;
+        html += '<tr><td style="padding-right:18px;">' + esc(a.name) + '</td><td class="num">' + fmt(netAmount(a)) + '</td></tr>';
     });
   }
   if (reservesT) {
@@ -1853,7 +1866,7 @@ function sumCat(accounts, cat){
 function linesForCat(accounts, cat, signFlip){
   return accounts.filter(function(a) { return a.cat === cat || resolveCat(a.cat) === cat; }).map(function(a) {
     return {label:a.name, amount: signFlip ? -netAmount(a) : netAmount(a)};
-  });
+  }).filter(function(l) { return Math.abs(l.amount) >= 0.00001; });
 }
 
 function computeStatements(accounts, tbTotals){
