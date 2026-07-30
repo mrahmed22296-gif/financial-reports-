@@ -2640,7 +2640,7 @@ function exportToPDF() {
     { title: 'قائمة الدخل', desc: 'الربح أو الخسارة للفترة', html: renderIncomeStatement(data.income_statement) },
     { title: 'قائمة المركز المالي', desc: 'الأصول والالتزامات وحقوق الملكية', html: renderBalanceSheet(data.balance_sheet) },
     { title: 'قائمة التدفقات النقدية', desc: 'التدفقات التشغيلية والاستثمارية والتمويلية', html: renderCashFlow(data.cash_flow) },
-    { title: 'الإيضاحات المحاسبية', desc: 'السياسات والتفاصيل الإضافية', html: renderNotes(data.notes) },
+    { title: 'الإيضاحات المحاسبية', desc: 'السياسات والتفاصيل الإضافية', html: renderNotes(data) },
     { title: 'التقرير التحليلي', desc: 'النسب والملاحظات والفرضيات', html: renderAnalysis(data.analytical_report) }
   ];
 
