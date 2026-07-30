@@ -2162,9 +2162,6 @@ function computeStatements(accounts, tbTotals){
   var items_requiring_review = [];
   var unclassified = accounts.filter(function(a) { return !a.cat; });
   if(unclassified.length) items_requiring_review.push(unclassified.length + ' حساب لم يُصنَّف: ' + unclassified.map(function(a){return a.name;}).join('، ') + '.');
-  var zeroRows = rows.filter(function(r) { return r.name && r.name.trim()!=='' && !r.debit && !r.credit; });
-  if(zeroRows.length) items_requiring_review.push('توجد حسابات بأرصدة صفرية — تأكد أنها مقصودة قبل الاعتماد النهائي.');
-
   var assumptions_used = [
     'رصيد الأرباح المبقاة من ميزان المراجعة (أول المدة/قبل الإقفال) + صافي ربح الفترة الحالية − التوزيعات = الأرباح المبقاة الشاملة للفترة في قائمة المركز المالي.',
     'قائمة التدفقات النقدية معروضة بشكل جزئي (صافي الربح + الإهلاك المضاف)؛ إذ يتعذر احتساب التغيرات في بنود رأس المال العامل (المدينون، المخزون، الدائنون) أو حركة الأصول الثابتة والقروض دون توفر أرصدة الفترة السابقة للمقارنة. للحصول على قائمة تدفقات نقدية كاملة، يُرجى توفير ميزان مراجعة للفترة السابقة أيضاً.',
