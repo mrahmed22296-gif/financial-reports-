@@ -97,7 +97,13 @@
   table.tb-table select{
     width:100%; border:1px solid var(--paper-line); background:var(--white); font-family:'Tajawal',sans-serif; font-size:13px; padding:6px 4px; border-radius:6px; color:var(--ink);
   }
-  table.tb-table select.unclassified{ border-color:var(--signal); background:var(--signal-soft); color:var(--signal);}
+  table.tb-table select.unclassified{
+    border:2px solid var(--signal) !important;
+    background:var(--signal-soft) !important;
+    color:var(--signal) !important;
+    font-weight:700;
+    box-shadow:0 0 0 2px rgba(178,58,58,0.15);
+  }
   table.tb-table input:focus{ outline:none; background:var(--white); border-color:var(--paper-line);}
   table.tb-table tr:hover td{ background:rgba(169,120,46,0.05);}
   .del-btn{ background:none; border:none; color:var(--signal); cursor:pointer; font-size:16px; padding:4px 8px; border-radius:8px;}
@@ -325,6 +331,7 @@
     <div class="tb-tools">
       <button class="btn btn-brass" onclick="addRow()">＋ إضافة حساب</button>
       <button class="btn btn-ghost" onclick="autoClassifyAll()">🏷 تصنيف تلقائي للحسابات</button>
+      <button class="btn btn-ghost" onclick="addCustomCategory()">＋ إضافة تصنيف جديد</button>
       <button class="btn btn-ghost" onclick="clearAll()">🗑 مسح الكل</button>
     </div>
 
@@ -463,7 +470,7 @@ var CLASSIFY_RULES = [
   { regex: /^112\d+/, category: 'ar', priority: 86 },
 
   // مخزون
-  { regex: /(?:مخزون|بضاعة|مواد\s*خام|بضاعة\s*جاهزة|inventory|stock|raw\s*material|finished\s*goods|بضائع)/i, category: 'inventory', priority: 94 },
+  { regex: /(?:مخزون|بضاعة|مواد\s*خام|بضاعة\s*جاهزة|inventory|stock|raw\s*material|finished\s*goods|بضائع|goods\s*in\s*transit|بضاعة\s*بالطريق)/i, category: 'inventory', priority: 94 },
   { regex: /^115\d+/, category: 'inventory', priority: 85 },
 
   // مصروفات مدفوعة مقدماً / دفعات مقدمة
@@ -473,7 +480,7 @@ var CLASSIFY_RULES = [
 
   // تأمينات واستثمارات ومستحق من أطراف ذات صلة
   { regex: /(?:تأمينات\s*مستردة|تأمين\s*مسترد|refundable\s*deposit|security\s*deposit)/i, category: 'refundable_deposit', priority: 92 },
-  { regex: /(?:استثمارات?\s*(?:تداول|قصيرة)|trading\s*investment|investment[\s\-_]*(?:trading|treading|trade)|short[\s-]*term\s*invest)/i, category: 'trading_investment', priority: 96 },
+  { regex: /(?:استثمارات?\s*(?:تداول|قصيرة)|trading\s*investment|investment[\s\-_]*(?:trading|treading|trade)|short[\s-]*term\s*invest|^investments?$|استثمار(?!\s*طويل))/i, category: 'trading_investment', priority: 96 },
   { regex: /(?:مستحق\s*من\s*(?:أطراف|اطراف)|due\s*from\s*related|related\s*party\s*receivable)/i, category: 'related_party', priority: 93 },
 
   // أصول ثابتة
@@ -576,7 +583,7 @@ function classifyAccount(name, debit, credit) {
   if (bestMatch === 'prepaid' && credit > debit) return 'accrued';
   if (bestMatch) return bestMatch;
 
-  // Fallback حسب طبيعة الحساب
+  // Fallback محدود — إن لم تتطابق قاعدة واضحة يُرجع فارغاً ليظهر بالأحمر للمستخدم
   var hasCredit = credit > 0 && debit === 0;
   var hasDebit = debit > 0 && credit === 0;
   var n = normalized;
@@ -587,36 +594,39 @@ function classifyAccount(name, debit, credit) {
     if (/ارباح|مبقا|محتجز|retained|خسائر\s*متراكم/i.test(n)) return 'retained';
     if (/احتياطي|reserve/i.test(n)) return 'reserves';
     if (/ايراد|مبيعات|revenue|sales/i.test(n)) return 'revenue';
-    if (/مورد|دائن|payable|supplier|tp\b/i.test(n)) return 'ap';
+    if (/مورد|دائن|payable|supplier|\btp\b/i.test(n)) return 'ap';
     if (/مستحق|accrued|رواتب/i.test(n)) return 'accrued';
     if (/قرض|loan/i.test(n)) return 'lt_loan';
-    return 'ap';
+    return ''; // غير مؤكد — يظهر أحمر
   }
 
   if (hasDebit) {
-    if (/نقد|بنك|صندوق|cash|bank/i.test(n)) return 'cash';
-    if (/مدين|عملاء|receivable|tr\b/i.test(n)) return 'ar';
-    if (/مخزون|بضاع|inventory/i.test(n)) return 'inventory';
+    if (/نقد|صندوق|cash|petty/i.test(n)) return 'cash';
+    if (/(?:^|\s)(?:بنك|bank)(?!\s*(?:charge|fee|رسوم|عمولة))/i.test(n)) return 'cash';
+    if (/مدين|عملاء|receivable|\btr\b/i.test(n)) return 'ar';
+    if (/مخزون|بضاع|inventory|goods\s*in\s*transit|بالطريق/i.test(n)) return 'inventory';
+    if (/استثمار|invest/i.test(n)) return 'trading_investment';
     if (/مقدم|prepaid/i.test(n)) return 'prepaid';
-    if (/ثابت|معدات|اثاث|ppe|fixed|fa\b/i.test(n)) return 'ppe';
+    if (/ثابت|معدات|اثاث|ppe|fixed|\bfa\b/i.test(n)) return 'ppe';
     if (/مجمع.*(اهلاك|استهلاك)|accum.*dep/i.test(n)) return 'accum_dep';
     if (/تكلفه\s*مبيعات|cost\s*of\s*sales|cogs/i.test(n)) return 'cogs';
     if (/اهلاك|استهلاك|depreciation|اطفاء/i.test(n)) return 'depreciation';
-    if (/مصروف|مصاريف|expense|رواتب|ايجار|sga/i.test(n)) return 'sga';
+    if (/مصروف|مصاريف|expense|رواتب|ايجار|sga|g\s*&\s*a/i.test(n)) return 'sga';
     if (/زكاه|ضريبه|tax|zakat/i.test(n)) return 'tax';
-    return 'other_expense';
+    return ''; // غير مؤكد — يظهر أحمر ليعدّله المستخدم
   }
 
-  // رصيد مزدوج: اختر حسب الأكبر
   if (debit > credit) {
-    if (/نقد|بنك|cash|bank/i.test(n)) return 'cash';
+    if (/نقد|صندوق|cash/i.test(n)) return 'cash';
     if (/مدين|عملاء|receivable/i.test(n)) return 'ar';
-    return 'other_ca';
+    if (/استثمار|invest/i.test(n)) return 'trading_investment';
+    if (/مخزون|inventory|transit/i.test(n)) return 'inventory';
+    return '';
   }
   if (credit > debit) {
     if (/دائن|مورد|payable/i.test(n)) return 'ap';
     if (/راس\s*مال|capital/i.test(n)) return 'capital';
-    return 'other_cl';
+    return '';
   }
   return '';
 }
@@ -635,6 +645,71 @@ function categorySelectHTML(rowId, selected){
   }
   html += '</select>';
   return html;
+}
+
+
+var CUSTOM_CAT_COUNTER = 0;
+var CUSTOM_CAT_BASE = {}; // custom_key -> base category used in computations
+
+
+function autoClassifyAll() {
+  var changed = 0;
+  var unclear = 0;
+  rows.forEach(function(r) {
+    if (!r.name || !r.name.trim()) return;
+    var suggested = classifyAccount(r.name, r.debit, r.credit);
+    if (suggested !== r.cat) {
+      r.cat = suggested || '';
+      changed++;
+    }
+    if (!r.cat) unclear++;
+  });
+  renderRows();
+  updateClassificationWarning();
+  var msg = '✅ تم إعادة التصنيف (' + changed + ' تحديثاً).';
+  if (unclear) msg += ' — ' + unclear + ' حساباً بلا تصنيف (مظلّل بالأحمر) اختر تصنيفه يدوياً أو أضف تصنيفاً جديداً.';
+  showUploadStatus(msg, unclear === 0);
+}
+
+function addCustomCategory() {
+  var label = prompt('اسم التصنيف الجديد (بالعربية):');
+  if (!label || !label.trim()) return;
+  label = label.trim();
+
+  var groupChoice = prompt(
+    'اختر المجموعة برقم:\\n' +
+    '1 = أصول متداولة\\n' +
+    '2 = أصول غير متداولة\\n' +
+    '3 = التزامات متداولة\\n' +
+    '4 = التزامات غير متداولة\\n' +
+    '5 = حقوق الملكية\\n' +
+    '6 = إيرادات\\n' +
+    '7 = مصروفات',
+    '1'
+  );
+  var groupMap = {
+    '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6
+  };
+  var gIdx = groupMap[String(groupChoice || '1')] ;
+  if (gIdx === undefined) gIdx = 0;
+
+  var nature = prompt('طبيعة الحساب؟\\n1 = مدين (أصل/مصروف)\\n2 = دائن (التزام/إيراد/حقوق ملكية)', gIdx <= 1 || gIdx === 6 ? '1' : '2');
+  var isDebit = String(nature || '1') === '1';
+
+  CUSTOM_CAT_COUNTER++;
+  var key = 'custom_' + CUSTOM_CAT_COUNTER;
+  CATEGORY_GROUPS[gIdx].opts.push([key, label]);
+
+  // ربط التصنيف المخصص ببند أساسي في القوائم المالية
+  var baseByGroup = ['other_ca', 'other_nca', 'other_cl', 'other_ncl', 'reserves', 'other_income', 'other_expense'];
+  CUSTOM_CAT_BASE[key] = baseByGroup[gIdx] || 'other_expense';
+
+  if (isDebit) {
+    DEBIT_NATURE.add(key);
+  }
+
+  renderRows();
+  alert('تم إضافة التصنيف «' + label + '» — سيظهر ضمن: ' + CATEGORY_GROUPS[gIdx].label);
 }
 
 function addRow(){
@@ -1029,8 +1104,15 @@ function renderBalanceSheet(d) {
   var allAccounts = d._allAccounts || [];
   var catMap = {};
   allAccounts.forEach(function(a) {
-    if (!catMap[a.cat]) catMap[a.cat] = [];
-    catMap[a.cat].push(a);
+    var key = resolveCat(a.cat || '');
+    if (!key) key = a.cat || '';
+    if (!catMap[key]) catMap[key] = [];
+    catMap[key].push(a);
+    // احتفظ أيضاً بالمفتاح الأصلي إن اختلف
+    if (a.cat && a.cat !== key) {
+      if (!catMap[a.cat]) catMap[a.cat] = [];
+      catMap[a.cat].push(a);
+    }
   });
 
   function sumCatLocal(cat) {
@@ -1202,6 +1284,10 @@ function renderAnalysis(d){
   return html;
 }
 
+function resolveCat(cat) {
+  return (CUSTOM_CAT_BASE && CUSTOM_CAT_BASE[cat]) ? CUSTOM_CAT_BASE[cat] : cat;
+}
+
 function netAmount(row){
   var isDebitNature = DEBIT_NATURE.has(row.cat);
   var debit = Number(row.debit) || 0;
@@ -1210,11 +1296,11 @@ function netAmount(row){
 }
 
 function sumCat(accounts, cat){
-  return accounts.filter(function(a) { return a.cat === cat; }).reduce(function(s,a) { return s + netAmount(a); }, 0);
+  return accounts.filter(function(a) { return a.cat === cat || resolveCat(a.cat) === cat; }).reduce(function(s,a) { return s + netAmount(a); }, 0);
 }
 
 function linesForCat(accounts, cat, signFlip){
-  return accounts.filter(function(a) { return a.cat === cat; }).map(function(a) {
+  return accounts.filter(function(a) { return a.cat === cat || resolveCat(a.cat) === cat; }).map(function(a) {
     return {label:a.name, amount: signFlip ? -netAmount(a) : netAmount(a)};
   });
 }
