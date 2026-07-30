@@ -293,7 +293,7 @@
 
   <section class="card">
     <h2><span class="idx">١</span> ميزان المراجعة</h2>
-    <p class="hint">ارفع ملف إكسل يحتوي ميزان المراجعة، أو عدّل مباشرة على الجدول التجريبي أدناه.</p>
+    <p class="hint">ارفع ملف إكسل يحتوي ميزان المراجعة، أو عدّل مباشرة على الجدول التجريبي أدناه. للحصول على تقرير شهر واحد فقط: استخدم ميزان مراجعة بحركة ذلك الشهر (مدين/دائن للفترة) وليس الرصيد التراكمي من بداية السنة.</p>
 
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" hidden>
@@ -451,9 +451,11 @@ var DEBIT_NATURE = new Set([
 
 // ====== نظام تصنيف متطور ======
 var CLASSIFY_RULES = [
-  // نقد وبنوك — أولوية عالية
-  { regex: /(?:نقدي|نقدية|صندوق|خزينة|البنك|بنك|حساب\s*جاري|ودائع?\s*تحت\s*الطلب|cash\s*(?:on\s*hand|at\s*bank)?|bank\s*(?:account|balance)?|petty\s*cash|KFH|Warba|NBK|Boubyan|Gulf\s*Bank|VISA|CARD)/i, category: 'cash', priority: 96 },
+  // نقد وبنوك — أولوية عالية (مع استثناء مصاريف البنك)
+  { regex: /(?:نقدي|نقدية|صندوق|خزينة|حساب\s*جاري|ودائع?\s*تحت\s*الطلب|cash\s*(?:on\s*hand|at\s*bank)?|petty\s*cash|KFH|Warba|NBK|Boubyan|Gulf\s*Bank|VISA|CARD|(?:^|\s)(?:البنك|بنك|bank)(?!\s*(?:charge|fee|مصروف|رسوم|عمولة)))/i, category: 'cash', priority: 96 },
   { regex: /^11[0-1]\d{2,}/, category: 'cash', priority: 88 },
+  // رسوم بنكية = مصروف تشغيلي وليس نقدية
+  { regex: /(?:bank\s*charges?|bank\s*fees?|رسوم\s*بنكي|عمولة\s*بنك|مصاريف?\s*بنك)/i, category: 'sga', priority: 98 },
 
   // مدينون / عملاء
   { regex: /(?:مدينون|عملاء|ذمم\s*مدينة|حسابات\s*مدينة|receivable|trade\s*receivable|accounts?\s*receivable|\bAR\b|\bTR\s*[-–—])/i, category: 'ar', priority: 95 },
@@ -471,7 +473,7 @@ var CLASSIFY_RULES = [
 
   // تأمينات واستثمارات ومستحق من أطراف ذات صلة
   { regex: /(?:تأمينات\s*مستردة|تأمين\s*مسترد|refundable\s*deposit|security\s*deposit)/i, category: 'refundable_deposit', priority: 92 },
-  { regex: /(?:استثمارات?\s*(?:تداول|قصيرة)|trading\s*investment|short[\s-]*term\s*invest)/i, category: 'trading_investment', priority: 92 },
+  { regex: /(?:استثمارات?\s*(?:تداول|قصيرة)|trading\s*investment|investment[\s\-_]*(?:trading|treading|trade)|short[\s-]*term\s*invest)/i, category: 'trading_investment', priority: 96 },
   { regex: /(?:مستحق\s*من\s*(?:أطراف|اطراف)|due\s*from\s*related|related\s*party\s*receivable)/i, category: 'related_party', priority: 93 },
 
   // أصول ثابتة
@@ -509,8 +511,9 @@ var CLASSIFY_RULES = [
   { regex: /(?:توزيعات\s*أرباح|dividends?\s*paid|أرباح\s*موزعة)/i, category: 'dividends', priority: 92 },
   { regex: /^311\d+|^312\d+|^319\d+/, category: 'capital', priority: 80 },
 
-  // إيرادات
-  { regex: /(?:إيرادات|ايرادات|مبيعات|إيراد\s*المبيعات|revenue|sales(?!\s*refund)|turnover|training\s*courses?\s*rev|trading\s*commission\s*rev)/i, category: 'revenue', priority: 94 },
+  // إيرادات (بما فيها مردودات المبيعات التي تُخصم من الإيراد)
+  { regex: /(?:Sales\s*Refund|مردودات\s*المبيعات|مردود\s*مبيعات)/i, category: 'revenue', priority: 98 },
+  { regex: /(?:إيرادات|ايرادات|مبيعات|إيراد\s*المبيعات|revenue|sales|turnover|training\s*courses?\s*rev|trading\s*commission\s*rev)/i, category: 'revenue', priority: 94 },
   { regex: /(?:إيرادات?\s*أخرى|other\s*income|miscellaneous\s*income)/i, category: 'other_income', priority: 92 },
   { regex: /^41\d+/, category: 'revenue', priority: 84 },
 
@@ -520,8 +523,8 @@ var CLASSIFY_RULES = [
   { regex: /^511\d+/, category: 'cogs', priority: 86 },
 
   // مصاريف تشغيلية / إدارية
-  { regex: /(?:مصاريف?\s*(?:عمومية|إدارية|بيعية|تسويقية)|G\s*[&&]\s*A|operating\s*expense|administrative|selling\s*expense)/i, category: 'sga', priority: 94 },
-  { regex: /(?:رواتب|أجور|staff\s*cost|salaries|overtime|تأمين\s*صحي|تذاكر|إقامة|رسوم\s*حكومية|إيجار|كهرباء|ماء|نظافة|ضيافة|قرطاسية|صيانة|طباعة|رسوم\s*بنكية|سفر|هاتف|إنترنت|marketing|advertisement|rent|electricity|cleaning|stationery|license|maintenance|bank\s*charges|travelling|telephone|internet|professional\s*services?|audit|accounting\s*fees|legal)/i, category: 'sga', priority: 86 },
+  { regex: /(?:Other\s*G\s*[&&]?\s*A\s*Expenses?|G\s*[&&]\s*A\s*[-–—]|مصاريف?\s*(?:عمومية|إدارية|بيعية|تسويقية)|G\s*[&&]\s*A|operating\s*expense|administrative|selling\s*expense)/i, category: 'sga', priority: 96 },
+  { regex: /(?:رواتب|أجور|staff\s*cost|salaries|overtime|تأمين\s*صحي|تذاكر|إقامة|رسوم\s*حكومية|إيجار|كهرباء|ماء|نظافة|ضيافة|قرطاسية|صيانة|طباعة|رسوم\s*بنكية|سفر|هاتف|إنترنت|marketing|advertisement|rent|electricity|cleaning|stationery|license|maintenance|bank\s*charges?|travelling|telephone|internet|professional\s*services?|audit|accounting\s*fees|legal)/i, category: 'sga', priority: 90 },
   { regex: /^521\d+/, category: 'sga', priority: 84 },
 
   // إهلاك / تمويل / ضريبة
@@ -673,9 +676,14 @@ function parseNum(v){
 
 function detectColumns(json){
   var nameRe = /account\s*name|account|acct|اسم\s*الحساب|الحساب|اسم|بيان|البيان|description|name|الباب|رقم\s*الحساب/i;
-  var debitRe = /debit|^dr$|مدين|مدينة|debtor|^مدين$/i;
-  var creditRe = /credit|^cr$|دائن|دائنة|creditor|^دائن$/i;
-  var balanceRe = /balance|رصيد|end\s*balance|closing|الرصيد/i;
+  // أعمدة حركة الفترة (الشهر) — أولوية أعلى
+  var periodDebitRe = /(?:period|month|حركة|الفترة|الشهر|activity|movement).*(?:debit|مدين)|(?:debit|مدين).*(?:period|month|حركة|الفترة|الشهر)|^(?:debit|مدين)$/i;
+  var periodCreditRe = /(?:period|month|حركة|الفترة|الشهر|activity|movement).*(?:credit|دائن)|(?:credit|دائن).*(?:period|month|حركة|الفترة|الشهر)|^(?:credit|دائن)$/i;
+  var debitRe = /debit|^dr$|مدين|مدينة|debtor/i;
+  var creditRe = /credit|^cr$|دائن|دائنة|creditor/i;
+  var endBalRe = /end\s*balance|closing|رصيد\s*(?:نهائي|ختامي|آخر)|ending/i;
+  var openBalRe = /open(?:ing)?|initial|begin|رصيد\s*(?:افتتاح|أول)|opening/i;
+  var balanceRe = /balance|رصيد/i;
   var maxScan = Math.min(40, json.length);
   var best = null;
   var bestScore = -1;
@@ -684,23 +692,51 @@ function detectColumns(json){
     var row = (json[i] || []).map(function(c) { return String(c == null ? '' : c).trim(); });
     if (row.every(function(c) { return !c; })) continue;
 
-    var nameIdx = -1, debitIdx = -1, creditIdx = -1, balIdx = -1;
+    var nameIdx = -1;
+    var debitCandidates = [];
+    var creditCandidates = [];
+    var balIdx = -1;
+
     for (var j = 0; j < row.length; j++) {
       var cell = row[j];
       if (!cell) continue;
       if (nameIdx < 0 && nameRe.test(cell)) nameIdx = j;
-      if (debitRe.test(cell) && !/end|initial|opening|رصيد/i.test(cell)) debitIdx = j;
-      if (creditRe.test(cell) && !/end|initial|opening|رصيد/i.test(cell)) creditIdx = j;
-      if (balanceRe.test(cell)) balIdx = j;
+
+      var isEnd = endBalRe.test(cell);
+      var isOpen = openBalRe.test(cell);
+      var isPeriod = /period|month|حركة|الفترة|الشهر|activity|movement/i.test(cell);
+
+      if (debitRe.test(cell)) {
+        var dScore = 10;
+        if (isPeriod) dScore += 20;
+        if (isEnd) dScore -= 15;
+        if (isOpen) dScore -= 12;
+        // عمود مدين بسيط بدون كلمات إضافية
+        if (/^(debit|مدين|dr)$/i.test(cell)) dScore += 8;
+        debitCandidates.push({ idx: j, score: dScore, label: cell });
+      }
+      if (creditRe.test(cell)) {
+        var cScore = 10;
+        if (isPeriod) cScore += 20;
+        if (isEnd) cScore -= 15;
+        if (isOpen) cScore -= 12;
+        if (/^(credit|دائن|cr)$/i.test(cell)) cScore += 8;
+        creditCandidates.push({ idx: j, score: cScore, label: cell });
+      }
+      if (balanceRe.test(cell) && !debitRe.test(cell) && !creditRe.test(cell)) balIdx = j;
     }
+
+    debitCandidates.sort(function(a, b) { return b.score - a.score; });
+    creditCandidates.sort(function(a, b) { return b.score - a.score; });
+    var debitIdx = debitCandidates.length ? debitCandidates[0].idx : -1;
+    var creditIdx = creditCandidates.length ? creditCandidates[0].idx : -1;
 
     var score = 0;
     if (nameIdx > -1) score += 3;
-    if (debitIdx > -1) score += 2;
-    if (creditIdx > -1) score += 2;
-    if (balIdx > -1) score += 1;
+    if (debitIdx > -1) score += 2 + (debitCandidates[0] ? Math.max(0, debitCandidates[0].score) / 10 : 0);
+    if (creditIdx > -1) score += 2 + (creditCandidates[0] ? Math.max(0, creditCandidates[0].score) / 10 : 0);
+    if (balIdx > -1) score += 0.5;
 
-    // تحقق أن الصف التالي يحتوي بيانات رقمية
     if (score >= 3 && i + 1 < json.length) {
       var next = json[i + 1] || [];
       var hasNum = next.some(function(c) {
@@ -711,32 +747,32 @@ function detectColumns(json){
 
     if (score > bestScore && nameIdx > -1 && (debitIdx > -1 || creditIdx > -1 || balIdx > -1)) {
       bestScore = score;
-      best = { headerRowIdx: i, nameIdx: nameIdx, debitIdx: debitIdx, creditIdx: creditIdx, balIdx: balIdx };
+      best = {
+        headerRowIdx: i,
+        nameIdx: nameIdx,
+        debitIdx: debitIdx,
+        creditIdx: creditIdx,
+        balIdx: balIdx,
+        debitLabel: debitCandidates[0] ? debitCandidates[0].label : '',
+        creditLabel: creditCandidates[0] ? creditCandidates[0].label : ''
+      };
     }
   }
 
   if (best) return best;
 
-  // محاولة ثانية: ابحث عن صف فيه "End Balance"
   for (var i = 0; i < maxScan; i++) {
     var row = (json[i] || []).map(function(c) { return String(c == null ? '' : c).trim(); });
     var hasEnd = row.some(function(c) { return /End Balance|رصيد\s*(?:نهائي|ختامي|آخر)/i.test(c); });
     if (!hasEnd) continue;
-    var debitIdx = row.findIndex(function(c) { return /Debit|مدين/i.test(c); });
-    var creditIdx = row.findIndex(function(c) { return /Credit|دائن/i.test(c); });
+    var debitIdx = row.findIndex(function(c) { return /Debit|مدين/i.test(c) && !/End|Initial|Open/i.test(c); });
+    var creditIdx = row.findIndex(function(c) { return /Credit|دائن/i.test(c) && !/End|Initial|Open/i.test(c); });
     var nameIdx = row.findIndex(function(c) { return nameRe.test(c); });
     if (debitIdx > -1 || creditIdx > -1) {
-      return {
-        headerRowIdx: i,
-        nameIdx: nameIdx > -1 ? nameIdx : 1,
-        debitIdx: debitIdx,
-        creditIdx: creditIdx,
-        balIdx: -1
-      };
+      return { headerRowIdx: i, nameIdx: nameIdx > -1 ? nameIdx : 1, debitIdx: debitIdx, creditIdx: creditIdx, balIdx: -1 };
     }
   }
 
-  // افتراضي شائع لملفات TB عربية/إنجليزية
   return { headerRowIdx: 0, nameIdx: 1, debitIdx: 2, creditIdx: 3, balIdx: -1 };
 }
 
@@ -783,7 +819,11 @@ function handleWorkbookData(json){
   rows = newRows;
   renderRows();
   var classified = newRows.filter(function(r) { return r.cat; }).length;
-  showUploadStatus('✅ تم استيراد ' + newRows.length + ' حساباً — صُنّف تلقائياً: ' + classified + ' | غير مصنف: ' + (newRows.length - classified), true);
+  var colHint = '';
+  if (cols.debitLabel || cols.creditLabel) {
+    colHint = ' | أعمدة مستخدمة: ' + (cols.debitLabel || 'مدين') + ' / ' + (cols.creditLabel || 'دائن');
+  }
+  showUploadStatus('✅ تم استيراد ' + newRows.length + ' حساباً — مصنّف: ' + classified + ' | غير مصنف: ' + (newRows.length - classified) + colHint + ' — تأكد أن الأعمدة تمثل حركة الشهر المطلوب وليس الرصيد الختامي التراكمي.', true);
 }
 
 function handleFile(file){
