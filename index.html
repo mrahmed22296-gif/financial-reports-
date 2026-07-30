@@ -976,127 +976,139 @@ function parseNum(v){
 }
 
 function detectColumns(json){
-  var nameRe = /account\s*name|account|acct|اسم\s*الحساب|الحساب|اسم|بيان|البيان|description|name|الباب|رقم\s*الحساب/i;
+  var nameRe = /account\s*name|account|acct|اسم\s*الحساب|الحساب|اسم|بيان|البيان|description|name|رقم\s*الحساب/i;
+  var codeRe = /^code$|رقم|كود/i;
   var debitRe = /debit|^dr$|مدين|مدينة|debtor/i;
   var creditRe = /credit|^cr$|دائن|دائنة|creditor/i;
-  var endRe = /end\s*balance|ending|closing|رصيد\s*(?:نهائي|ختامي|آخر|الإقفال)|نهائي|ختامي/i;
-  var openRe = /open(?:ing)?|initial|begin(?:ning)?|رصيد\s*(?:افتتاح|أول|ابتدائي)|افتتاح|أول\s*المدة|ابتدائي/i;
-  var periodRe = /period|month|حركة|الفترة|الشهر|activity|movement|خلال\s*الفترة|الحركة/i;
-  var balRe = /balance|رصيد/i;
-  var maxScan = Math.min(40, json.length);
-  var best = null;
-  var bestScore = -1;
+  var endRe = /end\s*balance|ending|closing|رصيد\s*(?:نهائي|ختامي|آخر)|نهائي|ختامي/i;
+  var openRe = /initial\s*balance|open(?:ing)?|begin(?:ning)?|رصيد\s*(?:افتتاح|أول|ابتدائي)|افتتاح|أول\s*المدة|ابتدائي/i;
+  var periodRe = /period|month|حركة|الفترة|الشهر|activity|movement|خلال|jun|jul|jan|feb|mar|apr|may|aug|sep|oct|nov|dec|يناير|فبراير|مارس|أبريل|مايو|يونيو|يوليو|أغسطس|سبتمبر|أكتوبر|نوفمبر|ديسمبر|\d{4}/i;
+  var maxScan = Math.min(15, json.length);
+
+  // ابحث عن صف عناوين Debit/Credit
+  var headerRowIdx = -1;
+  var nameIdx = -1;
+  var codeIdx = -1;
+  var debitCreditCols = []; // {idx, side}
 
   for (var i = 0; i < maxScan; i++) {
     var row = (json[i] || []).map(function(c) { return String(c == null ? '' : c).trim(); });
-    if (row.every(function(c) { return !c; })) continue;
-
-    var nameIdx = -1;
-    var cols = []; // {idx, label, kind: open|end|period|plain, side: debit|credit|balance}
-
+    var localDrCr = [];
+    var localName = -1;
+    var localCode = -1;
     for (var j = 0; j < row.length; j++) {
       var cell = row[j];
       if (!cell) continue;
-      if (nameIdx < 0 && nameRe.test(cell)) nameIdx = j;
-
-      var isDebit = debitRe.test(cell);
-      var isCredit = creditRe.test(cell);
-      var isEnd = endRe.test(cell);
-      var isOpen = openRe.test(cell);
-      var isPeriod = periodRe.test(cell);
-      var isBal = balRe.test(cell) && !isDebit && !isCredit;
-
-      if (isDebit || isCredit || isBal) {
-        var kind = isPeriod ? 'period' : (isEnd ? 'end' : (isOpen ? 'open' : 'plain'));
-        var side = isDebit ? 'debit' : (isCredit ? 'credit' : 'balance');
-        cols.push({ idx: j, label: cell, kind: kind, side: side });
-      }
+      if (localName < 0 && nameRe.test(cell)) localName = j;
+      if (localCode < 0 && codeRe.test(cell)) localCode = j;
+      if (debitRe.test(cell)) localDrCr.push({ idx: j, side: 'debit', label: cell });
+      if (creditRe.test(cell)) localDrCr.push({ idx: j, side: 'credit', label: cell });
     }
-
-    function findCol(kind, side) {
-      for (var k = 0; k < cols.length; k++) {
-        if (cols[k].kind === kind && cols[k].side === side) return cols[k];
-      }
-      return null;
-    }
-    function findAny(side, preferKinds) {
-      for (var p = 0; p < preferKinds.length; p++) {
-        var c = findCol(preferKinds[p], side);
-        if (c) return c;
-      }
-      return null;
-    }
-
-    var periodDr = findCol('period', 'debit');
-    var periodCr = findCol('period', 'credit');
-    var openDr = findCol('open', 'debit');
-    var openCr = findCol('open', 'credit');
-    var openBal = findCol('open', 'balance');
-    var endDr = findCol('end', 'debit');
-    var endCr = findCol('end', 'credit');
-    var endBal = findCol('end', 'balance');
-    // أعمدة عامة
-    var plainDr = findCol('plain', 'debit') || findAny('debit', ['plain', 'period', 'end']);
-    var plainCr = findCol('plain', 'credit') || findAny('credit', ['plain', 'period', 'end']);
-    // رصيد واحد بدون تمييز
-    var anyBal = null;
-    for (var k = 0; k < cols.length; k++) {
-      if (cols[k].side === 'balance') { anyBal = cols[k]; break; }
-    }
-
-    var score = 0;
-    if (nameIdx > -1) score += 5;
-    if (periodDr || periodCr) score += 25;
-    if ((openDr || openCr || openBal) && (endDr || endCr || endBal)) score += 30;
-    if (plainDr || plainCr) score += 8;
-    if (endDr || endCr || endBal) score += 4;
-    if (openDr || openCr || openBal) score += 4;
-
-    if (score >= 5 && i + 1 < json.length) {
-      var next = json[i + 1] || [];
-      var hasNum = next.some(function(c) {
-        return typeof c === 'number' || (c && /^-?[\d,.\s()]+$/.test(String(c).trim()) && parseNum(c) !== 0);
-      });
-      if (hasNum) score += 3;
-    }
-
-    if (score > bestScore && nameIdx > -1) {
-      bestScore = score;
-      best = {
-        headerRowIdx: i,
-        nameIdx: nameIdx,
-        periodDebitIdx: periodDr ? periodDr.idx : -1,
-        periodCreditIdx: periodCr ? periodCr.idx : -1,
-        openDebitIdx: openDr ? openDr.idx : -1,
-        openCreditIdx: openCr ? openCr.idx : -1,
-        openBalIdx: openBal ? openBal.idx : -1,
-        endDebitIdx: endDr ? endDr.idx : -1,
-        endCreditIdx: endCr ? endCr.idx : -1,
-        endBalIdx: endBal ? endBal.idx : -1,
-        debitIdx: plainDr ? plainDr.idx : -1,
-        creditIdx: plainCr ? plainCr.idx : -1,
-        balIdx: anyBal ? anyBal.idx : -1,
-        labels: {
-          periodDr: periodDr ? periodDr.label : '',
-          periodCr: periodCr ? periodCr.label : '',
-          openDr: openDr ? openDr.label : '',
-          openCr: openCr ? openCr.label : '',
-          openBal: openBal ? openBal.label : '',
-          endDr: endDr ? endDr.label : '',
-          endCr: endCr ? endCr.label : '',
-          endBal: endBal ? endBal.label : ''
-        }
-      };
+    if (localName > -1 && localDrCr.length >= 2) {
+      headerRowIdx = i;
+      nameIdx = localName;
+      codeIdx = localCode;
+      debitCreditCols = localDrCr;
+      break;
     }
   }
 
-  if (best) return best;
+  if (headerRowIdx < 0) {
+    return {
+      headerRowIdx: 0, nameIdx: 1, codeIdx: 0,
+      periodDebitIdx: 4, periodCreditIdx: 5,
+      openDebitIdx: 2, openCreditIdx: 3,
+      endDebitIdx: 6, endCreditIdx: 7,
+      openBalIdx: -1, endBalIdx: -1, debitIdx: 4, creditIdx: 5, balIdx: -1,
+      modeHint: 'fallback_standard_8col'
+    };
+  }
+
+  // اقرأ صفوف العناوين العليا (فوق صف Debit/Credit) لمعرفة: Initial / Period / End
+  function parentLabelForCol(colIdx) {
+    for (var r = headerRowIdx - 1; r >= Math.max(0, headerRowIdx - 3); r--) {
+      var row = json[r] || [];
+      // ابحث في نفس العمود أو الأعمدة السابقة القريبة (دمج خلايا)
+      for (var c = colIdx; c >= Math.max(0, colIdx - 1); c--) {
+        var v = String(row[c] == null ? '' : row[c]).trim();
+        if (v) return v;
+      }
+    }
+    return '';
+  }
+
+  function classifyParent(label) {
+    if (!label) return 'plain';
+    if (openRe.test(label)) return 'open';
+    if (endRe.test(label)) return 'end';
+    if (periodRe.test(label)) return 'period';
+    return 'plain';
+  }
+
+  var openDebitIdx = -1, openCreditIdx = -1;
+  var periodDebitIdx = -1, periodCreditIdx = -1;
+  var endDebitIdx = -1, endCreditIdx = -1;
+  var plainDebits = [], plainCredits = [];
+
+  debitCreditCols.forEach(function(col) {
+    var parent = parentLabelForCol(col.idx);
+    var kind = classifyParent(parent);
+    if (kind === 'open') {
+      if (col.side === 'debit') openDebitIdx = col.idx;
+      else openCreditIdx = col.idx;
+    } else if (kind === 'end') {
+      if (col.side === 'debit') endDebitIdx = col.idx;
+      else endCreditIdx = col.idx;
+    } else if (kind === 'period') {
+      if (col.side === 'debit') periodDebitIdx = col.idx;
+      else periodCreditIdx = col.idx;
+    } else {
+      if (col.side === 'debit') plainDebits.push(col.idx);
+      else plainCredits.push(col.idx);
+    }
+  });
+
+  // إذا لم تُصنَّف بالأب لكن لدينا 3 أزواج Debit/Credit بالترتيب: Open, Period, End
+  var sortedDr = debitCreditCols.filter(function(c) { return c.side === 'debit'; }).map(function(c) { return c.idx; }).sort(function(a,b){return a-b;});
+  var sortedCr = debitCreditCols.filter(function(c) { return c.side === 'credit'; }).map(function(c) { return c.idx; }).sort(function(a,b){return a-b;});
+
+  if (sortedDr.length >= 3 && sortedCr.length >= 3) {
+    if (openDebitIdx < 0) openDebitIdx = sortedDr[0];
+    if (openCreditIdx < 0) openCreditIdx = sortedCr[0];
+    if (periodDebitIdx < 0) periodDebitIdx = sortedDr[1];
+    if (periodCreditIdx < 0) periodCreditIdx = sortedCr[1];
+    if (endDebitIdx < 0) endDebitIdx = sortedDr[2];
+    if (endCreditIdx < 0) endCreditIdx = sortedCr[2];
+  } else if (sortedDr.length === 2 && sortedCr.length === 2) {
+    // زوجان: غالباً Initial + End أو Period + End
+    if (openDebitIdx < 0 && endDebitIdx < 0 && periodDebitIdx < 0) {
+      openDebitIdx = sortedDr[0]; openCreditIdx = sortedCr[0];
+      endDebitIdx = sortedDr[1]; endCreditIdx = sortedCr[1];
+    }
+  }
+
+  var debitIdx = periodDebitIdx > -1 ? periodDebitIdx : (plainDebits[0] != null ? plainDebits[0] : sortedDr[0]);
+  var creditIdx = periodCreditIdx > -1 ? periodCreditIdx : (plainCredits[0] != null ? plainCredits[0] : sortedCr[0]);
+  if (debitIdx == null) debitIdx = -1;
+  if (creditIdx == null) creditIdx = -1;
+
   return {
-    headerRowIdx: 0, nameIdx: 1,
-    periodDebitIdx: -1, periodCreditIdx: -1,
-    openDebitIdx: -1, openCreditIdx: -1, openBalIdx: -1,
-    endDebitIdx: -1, endCreditIdx: -1, endBalIdx: -1,
-    debitIdx: 2, creditIdx: 3, balIdx: -1, labels: {}
+    headerRowIdx: headerRowIdx,
+    nameIdx: nameIdx,
+    codeIdx: codeIdx,
+    periodDebitIdx: periodDebitIdx,
+    periodCreditIdx: periodCreditIdx,
+    openDebitIdx: openDebitIdx,
+    openCreditIdx: openCreditIdx,
+    openBalIdx: -1,
+    endDebitIdx: endDebitIdx,
+    endCreditIdx: endCreditIdx,
+    endBalIdx: -1,
+    debitIdx: debitIdx,
+    creditIdx: creditIdx,
+    balIdx: -1,
+    modeHint: (periodDebitIdx > -1 || periodCreditIdx > -1) ? 'period_cols' :
+              (openDebitIdx > -1 && endDebitIdx > -1) ? 'open_end' : 'plain'
   };
 }
 
@@ -1139,16 +1151,23 @@ function handleWorkbookData(json){
     var credit = 0;
 
     if (hasPeriod) {
-      // أولوية: أعمدة حركة الفترة/الشهر مباشرة
+      // أولوية: أعمدة حركة الشهر (مثل Jun 2026)
       debit = cellNum(r, cols.periodDebitIdx);
       credit = cellNum(r, cols.periodCreditIdx);
       mode = 'period';
+      // إن كانت أعمدة الشهر فارغة لهذا الصف، احسب من الفرق
+      if (Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001 && canDiff) {
+        var openNetP = netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
+        var endNetP = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx);
+        var movP = endNetP - openNetP;
+        if (movP > 0.00001) { debit = movP; credit = 0; mode = 'difference'; }
+        else if (movP < -0.00001) { debit = 0; credit = Math.abs(movP); mode = 'difference'; }
+      }
     } else if (canDiff) {
       // حركة الشهر = الرصيد النهائي − رصيد أول المدة
       var openNet = netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
       var endNet = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx);
       var movement = endNet - openNet;
-      // movement > 0 زيادة مدينة، < 0 زيادة دائنة
       if (movement > 0.00001) {
         debit = movement;
         credit = 0;
