@@ -1100,6 +1100,220 @@
     font-size: 12.5px;
   }
 
+  /* ===== FLOATING CONTACT BUTTON ===== */
+  .float-contact {
+    position: fixed;
+    bottom: 30px;
+    left: 30px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .float-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    color: #fff;
+    border: none;
+    box-shadow: 0 8px 24px rgba(37, 211, 102, 0.45);
+    cursor: pointer;
+    font-size: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    animation: pulse-whatsapp 2s infinite;
+  }
+
+  .float-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 12px 32px rgba(37, 211, 102, 0.55);
+  }
+
+  @keyframes pulse-whatsapp {
+    0% {
+      box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5);
+    }
+    70% {
+      box-shadow: 0 0 0 16px rgba(37, 211, 102, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+    }
+  }
+
+  .float-tooltip {
+    background: var(--card);
+    color: var(--ink);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--paper-line);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .float-contact:hover .float-tooltip {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ===== CONTACT POPUP ===== */
+  .contact-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(13, 18, 38, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .contact-popup-overlay.show {
+    display: flex;
+  }
+
+  .contact-popup {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 32px 36px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.5);
+    position: relative;
+    animation: popIn 0.3s ease;
+  }
+
+  @keyframes popIn {
+    from {
+      transform: scale(0.9) translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .contact-popup .close-btn {
+    position: absolute;
+    top: 14px;
+    left: 18px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: 0.2s;
+    padding: 4px;
+  }
+
+  .contact-popup .close-btn:hover {
+    color: var(--signal);
+    transform: rotate(90deg);
+  }
+
+  .contact-popup h3 {
+    font-family: 'Cairo', sans-serif;
+    font-size: 22px;
+    margin: 0 0 6px;
+    color: var(--ink);
+  }
+
+  .contact-popup .sub {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin-bottom: 22px;
+    line-height: 1.8;
+  }
+
+  .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--paper-line);
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: var(--ink);
+    transition: 0.2s;
+  }
+
+  .contact-item:hover {
+    border-color: var(--brass);
+    background: var(--paper);
+    transform: translateX(-4px);
+  }
+
+  .contact-item .icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--paper);
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  .contact-item .info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .contact-item .info .label {
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-family: 'Cairo', sans-serif;
+    font-weight: 700;
+  }
+
+  .contact-item .info .value {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .contact-item.whatsapp .icon {
+    background: #E8F5E9;
+    color: #25D366;
+  }
+
+  .contact-item.whatsapp:hover {
+    border-color: #25D366;
+  }
+
+  .contact-item.call .icon {
+    background: #E3F2FD;
+    color: #1A73E8;
+  }
+
+  .contact-item.call:hover {
+    border-color: #1A73E8;
+  }
+
+  .contact-item.email .icon {
+    background: #FCE4EC;
+    color: #E91E63;
+  }
+
+  .contact-item.email:hover {
+    border-color: #E91E63;
+  }
+
   /* ===== MODAL (unchanged) ===== */
   .cat-modal-overlay {
     position: fixed;
@@ -1384,6 +1598,27 @@
       gap: 10px;
     }
   }
+
+  @media (max-width: 480px) {
+    .float-btn {
+      width: 52px;
+      height: 52px;
+      font-size: 26px;
+    }
+    .float-contact {
+      bottom: 18px;
+      left: 18px;
+    }
+    .contact-popup {
+      padding: 24px 20px;
+    }
+    .contact-popup h3 {
+      font-size: 19px;
+    }
+    .contact-item {
+      padding: 10px 12px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1398,6 +1633,55 @@
         <div class="bar" id="progressBar"></div>
       </div>
       <div class="status-text" id="progressStatus">0%</div>
+    </div>
+  </div>
+
+  <!-- ===== FLOATING CONTACT BUTTON ===== -->
+  <div class="float-contact">
+    <button class="float-btn" onclick="toggleContactPopup()" aria-label="تواصل معنا">
+      💬
+    </button>
+    <span class="float-tooltip">تواصل معنا</span>
+  </div>
+
+  <!-- ===== CONTACT POPUP ===== -->
+  <div class="contact-popup-overlay" id="contactPopup" onclick="closeContactPopup(event)">
+    <div class="contact-popup" onclick="event.stopPropagation()">
+      <button class="close-btn" onclick="closeContactPopup()">✕</button>
+      <h3>📞 تواصل معنا</h3>
+      <p class="sub">أهلاً بك! يمكنك التواصل معنا عبر أي من القنوات التالية:</p>
+
+      <a href="https://wa.me/96560085043?text=مرحباً%20أ.%20أحمد%20أرغب%20في%20استشارة%20مالية" target="_blank" class="contact-item whatsapp">
+        <span class="icon">💬</span>
+        <span class="info">
+          <span class="label">واتساب</span>
+          <span class="value">+965 60085043</span>
+        </span>
+      </a>
+
+      <a href="tel:+96560085043" class="contact-item call">
+        <span class="icon">📱</span>
+        <span class="info">
+          <span class="label">اتصال</span>
+          <span class="value">+965 60085043</span>
+        </span>
+      </a>
+
+      <a href="mailto:mr.ahmed22296@gmail.com" class="contact-item email">
+        <span class="icon">✉️</span>
+        <span class="info">
+          <span class="label">البريد الإلكتروني</span>
+          <span class="value">mr.ahmed22296@gmail.com</span>
+        </span>
+      </a>
+
+      <a href="tel:+201201487209" class="contact-item call">
+        <span class="icon">📞</span>
+        <span class="info">
+          <span class="label">اتصال (مصر)</span>
+          <span class="value">+20 1201487209</span>
+        </span>
+      </a>
     </div>
   </div>
 
@@ -1580,6 +1864,31 @@
   <div class="pdf-print-content" id="pdfPrintContent"></div>
 
   <script>
+    // ===== CONTACT POPUP FUNCTIONS =====
+    function toggleContactPopup() {
+      var popup = document.getElementById('contactPopup');
+      popup.classList.toggle('show');
+    }
+
+    function closeContactPopup(e) {
+      if (e && e.target && e.target.id !== 'contactPopup' && !e.target.closest('.contact-popup')) {
+        return;
+      }
+      var popup = document.getElementById('contactPopup');
+      if (e && e.target === popup) {
+        popup.classList.remove('show');
+      } else if (!e) {
+        popup.classList.remove('show');
+      }
+    }
+
+    // Close popup with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        document.getElementById('contactPopup').classList.remove('show');
+      }
+    });
+
     // ===== PROGRESS FUNCTIONS =====
     function showProgress(title, desc, percent) {
       var overlay = document.getElementById('progressOverlay');
@@ -1654,7 +1963,6 @@
           renderRows();
           updateProgress(80, 'تهيئة القوائم...');
 
-          // حساب إجماليات الميزان التجريبي
           var totalDr = rows.reduce(function(s, r) { return s + (Number(r.debit) || 0); }, 0);
           var totalCr = rows.reduce(function(s, r) { return s + (Number(r.credit) || 0); }, 0);
           sourceTbCheck = {
@@ -1677,7 +1985,7 @@
       }, 300);
     }
 
-    // ===== REST OF JAVASCRIPT (same as before, with progress integration) =====
+    // ===== REST OF JAVASCRIPT =====
     var rows = [];
     var rowIdCounter = 0;
     var lastGeneratedData = null;
@@ -3570,7 +3878,6 @@
       document.getElementById('dashboardSection').style.display = 'block';
     }
 
-    // ===== GENERATE WITH PROGRESS =====
     function generateStatements() {
       var totals = updateTotals();
       var accounts = rows.filter(function(r) {
@@ -3655,7 +3962,7 @@
       errorBox.classList.add('show');
     }
 
-    // ===== EXPORT FUNCTIONS (simplified for space) =====
+    // ===== EXPORT FUNCTIONS =====
     function exportToExcel() {
       if (!lastGeneratedData) {
         alert('الرجاء توليد القوائم المالية أولاً.');
@@ -3760,7 +4067,7 @@
           styleSheet(wsIncome, incomeMeta);
           XLSX.utils.book_append_sheet(wb, wsIncome, 'قائمة الدخل');
 
-          // Balance Sheet (simplified)
+          // Balance Sheet
           var balanceData = [],
             balanceMeta = [];
           var bs = data.balance_sheet;
@@ -3880,7 +4187,7 @@
           });
           indexHtml += '</tbody></table>';
           indexHtml +=
-            '<p style="margin-top:20px;font-size:12px;color:#5C6B62;">اعدد وتطوير: أحمد عبدالكريم — mr.ahmed22296@gmail.com</p>';
+            '<p style="margin-top:20px;font-size:12px;color:#5C6B62;">أ. أحمد عبدالكريم — mr.ahmed22296@gmail.com</p>';
 
           var pages = [{ title: 'فهرس القوائم', html: indexHtml }].concat(financialPages);
 
