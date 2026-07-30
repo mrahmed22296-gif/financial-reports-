@@ -1891,25 +1891,7 @@ function computeStatements(accounts, tbTotals){
   var netIncomeBeforeTax = ebit - financeCostTotal;
   var netIncome = netIncomeBeforeTax - taxTotal;
 
-  // صافي الأرباح/الخسائر غير المُقفلة بالكامل (من الأرصدة النهائية لحسابات الدخل)
-  function netAmountEnd(row) {
-    var isDebitNature = DEBIT_NATURE.has(row.cat);
-    var d = (row.endDebit != null) ? Number(row.endDebit) || 0 : (Number(row.debit) || 0);
-    var c = (row.endCredit != null) ? Number(row.endCredit) || 0 : (Number(row.credit) || 0);
-    return isDebitNature ? (d - c) : (c - d);
-  }
-  var INCOME_CATS_SET = { revenue:1, other_income:1, cogs:1, sga:1, depreciation:1, finance_cost:1, tax:1, other_expense:1 };
-  var fullPeriodProfit = 0;
-  accounts.forEach(function(a) {
-    var base = resolveCat(a.cat) || a.cat;
-    if (!INCOME_CATS_SET[a.cat] && !INCOME_CATS_SET[base]) return;
-    var n = netAmountEnd(a);
-    if (base === 'revenue' || base === 'other_income' || a.cat === 'revenue' || a.cat === 'other_income') {
-      fullPeriodProfit += n;
-    } else {
-      fullPeriodProfit -= n;
-    }
-  });
+  // fullPeriodProfit يُحسب لاحقاً من معادلة التوازن
 
 
   var sections = [
@@ -1970,7 +1952,10 @@ function computeStatements(accounts, tbTotals){
   var retainedTotal = sumCat(accounts, 'retained');
   var dividendsTotal = sumCat(accounts, 'dividends');
   
-  // الأرباح المرحلة الشاملة = رصيد الأرباح المبقاة + صافي أرباح/خسائر غير المُقفلة بالكامل (أرصدة نهائية للدخل)
+  // أرباح/خسائر الفترة بالكامل (غير المُقفلة) تُحسب أوتوماتيكياً من معادلة المركز المالي
+  // الأصول − الالتزامات − (رأس المال + جاري الشركاء + الاحتياطيات + الأرباح المبقاة − التوزيعات)
+  var equityBase = capitalTotal + partnerCurrentTotal + reservesTotal + retainedTotal - dividendsTotal;
+  var fullPeriodProfit = totalAssets - totalLiabilities - equityBase;
   var retainedComprehensive = retainedTotal + fullPeriodProfit - dividendsTotal;
   var totalEquity = capitalTotal + partnerCurrentTotal + reservesTotal + retainedComprehensive;
   var totalLiabEquity = totalLiabilities + totalEquity;
