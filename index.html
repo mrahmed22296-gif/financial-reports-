@@ -329,7 +329,7 @@
 
   <section class="card">
     <h2><span class="idx">١</span> ميزان المراجعة</h2>
-    <p class="hint">ارفع ملف إكسل يحتوي ميزان المراجعة، أو عدّل مباشرة على الجدول التجريبي أدناه. لاحتساب الشهر فقط: يفضّل ملف يحتوي رصيد أول المدة + الرصيد النهائي (يُحسب تلقائياً: النهائي − أول المدة)، أو أعمدة حركة الفترة مباشرة.</p>
+    <p class="hint">ارفع ملف إكسل يحتوي ميزان المراجعة، أو عدّل مباشرة على الجدول التجريبي أدناه. قائمة الدخل = حركة الشهر فقط | المركز المالي = الرصيد النهائي. يُفضّل ملف بأعمدة Initial + Period (الشهر) + End Balance.</p>
 
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" hidden>
@@ -1119,14 +1119,18 @@ function handleWorkbookData(json){
   var totalRe = /^(total|grand total|الإجمالي|إجمالي|اجمالي|المجموع|الاجمالي|الميزان|مجموع|المجموع العام|Total|صافي|net\s*total)/i;
   var skipRe = /^(page|صفحة|sheet|تقرير|ميزان\s*المراجعة|trial\s*balance|company|شركة)/i;
   var newRows = [];
-  var mode = 'unknown'; // period | difference | plain
+
+  // تصنيفات قائمة الدخل → حركة الشهر فقط
+  var INCOME_CATS = {
+    revenue: 1, other_income: 1, cogs: 1, sga: 1, depreciation: 1,
+    finance_cost: 1, tax: 1, other_expense: 1, dividends: 1
+  };
 
   function cellNum(r, idx) {
     if (idx == null || idx < 0 || idx >= r.length) return 0;
     return parseNum(r[idx]);
   }
 
-  // صافي رصيد من عمودي مدين/دائن أو من رصيد مفرد (موجب=مدين، سالب=دائن)
   function netFromPair(r, drIdx, crIdx, balIdx) {
     var dr = cellNum(r, drIdx);
     var cr = cellNum(r, crIdx);
@@ -1135,10 +1139,18 @@ function handleWorkbookData(json){
     return 0;
   }
 
+  function toDebitCredit(net) {
+    if (net > 0.00001) return { debit: net, credit: 0 };
+    if (net < -0.00001) return { debit: 0, credit: Math.abs(net) };
+    return { debit: 0, credit: 0 };
+  }
+
   var hasPeriod = cols.periodDebitIdx > -1 || cols.periodCreditIdx > -1;
   var hasOpen = cols.openDebitIdx > -1 || cols.openCreditIdx > -1 || cols.openBalIdx > -1;
   var hasEnd = cols.endDebitIdx > -1 || cols.endCreditIdx > -1 || cols.endBalIdx > -1;
   var canDiff = hasOpen && hasEnd;
+
+  var countIS = 0, countBS = 0;
 
   for (var i = headerRowIdx + 1; i < json.length; i++) {
     var r = json[i];
@@ -1147,83 +1159,84 @@ function handleWorkbookData(json){
     if (!name || totalRe.test(name) || skipRe.test(name) || name.length < 2) continue;
     if (/^[0-9.\-\/]+$/.test(name) && name.length < 12) continue;
 
-    var debit = 0;
-    var credit = 0;
+    // --- قراءة الأرصدة الثلاثة ---
+    var periodDr = hasPeriod ? cellNum(r, cols.periodDebitIdx) : 0;
+    var periodCr = hasPeriod ? cellNum(r, cols.periodCreditIdx) : 0;
+    if (hasPeriod && Math.abs(periodDr) < 0.00001 && Math.abs(periodCr) < 0.00001 && canDiff) {
+      // احتياطي: الفرق إن كانت أعمدة الشهر فارغة
+      var mov = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx)
+              - netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
+      var m = toDebitCredit(mov);
+      periodDr = m.debit;
+      periodCr = m.credit;
+    } else if (!hasPeriod && canDiff) {
+      var mov2 = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx)
+               - netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
+      var m2 = toDebitCredit(mov2);
+      periodDr = m2.debit;
+      periodCr = m2.credit;
+    } else if (!hasPeriod && !canDiff) {
+      periodDr = cellNum(r, cols.debitIdx);
+      periodCr = cellNum(r, cols.creditIdx);
+    }
 
-    if (hasPeriod) {
-      // أولوية: أعمدة حركة الشهر (مثل Jun 2026)
-      debit = cellNum(r, cols.periodDebitIdx);
-      credit = cellNum(r, cols.periodCreditIdx);
-      mode = 'period';
-      // إن كانت أعمدة الشهر فارغة لهذا الصف، احسب من الفرق
-      if (Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001 && canDiff) {
-        var openNetP = netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
-        var endNetP = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx);
-        var movP = endNetP - openNetP;
-        if (movP > 0.00001) { debit = movP; credit = 0; mode = 'difference'; }
-        else if (movP < -0.00001) { debit = 0; credit = Math.abs(movP); mode = 'difference'; }
+    var endDr = 0, endCr = 0;
+    if (hasEnd) {
+      endDr = cellNum(r, cols.endDebitIdx);
+      endCr = cellNum(r, cols.endCreditIdx);
+      if (Math.abs(endDr) < 0.00001 && Math.abs(endCr) < 0.00001 && cols.endBalIdx > -1) {
+        var eb = cellNum(r, cols.endBalIdx);
+        if (eb > 0) endDr = eb;
+        else if (eb < 0) endCr = Math.abs(eb);
       }
-    } else if (canDiff) {
-      // حركة الشهر = الرصيد النهائي − رصيد أول المدة
-      var openNet = netFromPair(r, cols.openDebitIdx, cols.openCreditIdx, cols.openBalIdx);
-      var endNet = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx);
-      var movement = endNet - openNet;
-      if (movement > 0.00001) {
-        debit = movement;
-        credit = 0;
-      } else if (movement < -0.00001) {
-        debit = 0;
-        credit = Math.abs(movement);
-      } else {
-        debit = 0;
-        credit = 0;
-      }
-      mode = 'difference';
+    } else if (!hasPeriod) {
+      // ملف بسيط بدون تفصيل: استخدم المدين/الدائن كرصيد
+      endDr = cellNum(r, cols.debitIdx);
+      endCr = cellNum(r, cols.creditIdx);
+    }
+
+    // تصنيف أولي بالاسم (مع حركة الشهر كمرجع للطبيعة)
+    var cat = classifyAccount(name, periodDr || endDr, periodCr || endCr);
+    var isIncome = !!(cat && INCOME_CATS[cat]);
+
+    var debit = 0, credit = 0;
+    if (isIncome) {
+      // قائمة الدخل = حركة الشهر فقط
+      debit = periodDr;
+      credit = periodCr;
+      if (Math.abs(debit) > 0.00001 || Math.abs(credit) > 0.00001) countIS++;
     } else {
-      // افتراضي: أعمدة مدين/دائن العامة أو الرصيد
-      debit = cellNum(r, cols.debitIdx);
-      credit = cellNum(r, cols.creditIdx);
-      if (debit === 0 && credit === 0 && cols.balIdx > -1) {
-        var bal = cellNum(r, cols.balIdx);
-        if (bal > 0) debit = bal;
-        else if (bal < 0) credit = Math.abs(bal);
+      // المركز المالي = الرصيد النهائي
+      debit = endDr;
+      credit = endCr;
+      // إن لم يوجد رصيد ختامي، استخدم الحركة كاحتياطي
+      if (Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001) {
+        debit = periodDr;
+        credit = periodCr;
       }
-      // إن وُجد رصيد ختامي فقط بدون افتتاحي نستخدمه كما هو (تنبيه لاحقاً)
-      if (debit === 0 && credit === 0 && hasEnd) {
-        var endOnly = netFromPair(r, cols.endDebitIdx, cols.endCreditIdx, cols.endBalIdx);
-        if (endOnly > 0) debit = endOnly;
-        else if (endOnly < 0) credit = Math.abs(endOnly);
-        mode = 'end_only';
-      } else {
-        mode = 'plain';
-      }
+      if (Math.abs(debit) > 0.00001 || Math.abs(credit) > 0.00001) countBS++;
     }
 
     if (Math.abs(debit) < 0.00001 && Math.abs(credit) < 0.00001) continue;
 
-    var cat = classifyAccount(name, debit, credit);
+    // إعادة التصنيف بالمبالغ النهائية المستخدمة
+    cat = classifyAccount(name, debit, credit);
     newRows.push({ id: rowIdCounter++, name: name, debit: debit, credit: credit, cat: cat });
   }
 
   if (newRows.length === 0) {
-    showUploadStatus('لم يتم العثور على صفوف صالحة في الملف. تأكد أن الملف يحتوي أعمدة: اسم الحساب، ومدين/دائن أو رصيد أول وآخر المدة.', false);
+    showUploadStatus('لم يتم العثور على صفوف صالحة. تأكد من أعمدة: اسم الحساب + Initial/Period/End.', false);
     return;
   }
 
   rows = newRows;
   renderRows();
   var classified = newRows.filter(function(r) { return r.cat; }).length;
-  var modeMsg = '';
-  if (mode === 'difference') {
-    modeMsg = ' | الوضع: حركة الشهر فقط (الرصيد النهائي − رصيد أول المدة)';
-  } else if (mode === 'period') {
-    modeMsg = ' | الوضع: أعمدة حركة الفترة/الشهر مباشرة';
-  } else if (mode === 'end_only') {
-    modeMsg = ' | تنبيه: وُجد رصيد ختامي فقط بدون رصيد افتتاحي — تم استخدام الرصيد الختامي. أضف عمود أول المدة لاحتساب الشهر بدقة.';
-  } else {
-    modeMsg = ' | الوضع: أعمدة المدين/الدائن كما هي (إن كان الملف تراكميًا لن يظهر الشهر فقط)';
-  }
-  showUploadStatus('✅ تم استيراد ' + newRows.length + ' حساباً — مصنّف: ' + classified + ' | غير مصنف: ' + (newRows.length - classified) + modeMsg, mode !== 'end_only');
+  var msg = '✅ تم استيراد ' + newRows.length + ' حساباً';
+  msg += ' | قائمة الدخل (حركة الشهر): ' + countIS;
+  msg += ' | المركز المالي (رصيد نهائي): ' + countBS;
+  msg += ' | مصنّف: ' + classified + ' | غير مصنف: ' + (newRows.length - classified);
+  showUploadStatus(msg, true);
 }
 
 function handleFile(file){
