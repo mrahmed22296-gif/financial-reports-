@@ -1,0 +1,76 @@
+<!--
+  ملف إرشادي (مش هيتحمّل لوحده) — يوضح التعديلين المطلوبين في index__5_.html
+  لربط /api/analyze الجديد بالواجهة، بدون حذف أي كود موجود.
+-->
+
+<!-- ========================================================================
+  1) أضف هذا الزر بجانب زر "🏷 تصنيف تلقائي" الموجود عندك في السطر ~1925:
+     <button class="btn btn-ghost" onclick="autoClassifyAll()">🏷 تصنيف تلقائي</button>
+  ======================================================================== -->
+<button class="btn btn-ghost" onclick="aiClassifyAll()">🤖 تصنيف بالذكاء الاصطناعي</button>
+
+
+<!-- ========================================================================
+  2) أضف هذه الدالة في <script> بعد دالة autoClassifyAll() (حوالي السطر 2589)
+     بدون حذف autoClassifyAll() — تفضل موجودة كخيار تصنيف محلي سريع.
+  ======================================================================== -->
+<script>
+  function aiClassifyAll() {
+    var accountsForApi = rows.filter(function(r) {
+      return r.name && r.name.trim();
+    });
+
+    if (!accountsForApi.length) {
+      showUploadStatus('لا توجد حسابات لتصنيفها.', false);
+      return;
+    }
+
+    // نبني CSV بسيط: الاسم، مدين، دائن — بنفس القيم المدخلة في الواجهة
+    var csvLines = ['name,debit,credit'];
+    accountsForApi.forEach(function(r) {
+      var name = String(r.name).replace(/,/g, ' ').replace(/"/g, "'");
+      csvLines.push(name + ',' + (Number(r.debit) || 0) + ',' + (Number(r.credit) || 0));
+    });
+    var csvData = csvLines.join('\n');
+
+    showUploadStatus('⏳ جاري التصنيف بالذكاء الاصطناعي...', true);
+
+    fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csvData: csvData })
+    })
+      .then(function(res) { return res.json(); })
+      .then(function(result) {
+        if (result.error) {
+          showUploadStatus('⚠ ' + result.error, false);
+          return;
+        }
+
+        var returnedAccounts = result.accounts || [];
+        // نطابق بالترتيب (نفس ترتيب الإرسال) عشان نضمن التوافق مع rows الأصلية
+        var changed = 0, unclear = 0;
+        accountsForApi.forEach(function(r, i) {
+          var match = returnedAccounts[i];
+          if (!match) { return; }
+          if (match.cat !== r.cat) {
+            r.cat = match.cat || '';
+            changed++;
+          }
+          if (!r.cat) unclear++;
+        });
+
+        renderRows();
+        updateClassificationWarning();
+
+        var msg = '✅ تم التصنيف بالذكاء الاصطناعي (' + changed + ' تحديثاً).';
+        if (unclear) {
+          msg += ' — ' + unclear + ' حساباً بلا تصنيف واضح (مظلّل بالأحمر) — راجعه يدوياً.';
+        }
+        showUploadStatus(msg, unclear === 0);
+      })
+      .catch(function(err) {
+        showUploadStatus('⚠ تعذر الاتصال بخدمة التصنيف: ' + err.message, false);
+      });
+  }
+</script>
