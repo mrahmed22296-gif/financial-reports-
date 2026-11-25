@@ -5380,11 +5380,6 @@
     var FREE_USES = 1;
     var WA_NUMBER = '96560085043';
     var QR_URL = 'https://i.ibb.co/1GvzKs8r/Whats-App-Image-2026-08-06-at-4-44-31-PM-1.jpg';
-    var VALID_CODES = [
-        'FINREP-2026-A1B2', 'FINREP-2026-C3D4', 'FINREP-2026-E5F6',
-        'FINREP-2026-G7H8', 'FINREP-2026-I9J0',
-        'WAMD-1001', 'WAMD-1002', 'WAMD-1003', 'WAMD-1004', 'WAMD-1005'
-    ];
     var FIREBASE_CONFIG = {
         apiKey: 'AIzaSyCBtfYpB_j8X1ME-lMqP738Fy06FalSXIM',
         authDomain: 'resume-builder-access.firebaseapp.com',
@@ -5527,12 +5522,19 @@
             + '</div>';
         document.body.appendChild(m);
         document.getElementById('finPayClose').addEventListener('click', function () { m.remove(); });
-        document.getElementById('finCodeBtn').addEventListener('click', function () {
+        document.getElementById('finCodeBtn').addEventListener('click', async function () {
             var msg = document.getElementById('finCodeMsg');
             var val = (document.getElementById('finCodeInput').value || '').trim().toUpperCase();
             msg.style.display = 'block';
             if (!val) { msg.style.color = '#dc2626'; msg.textContent = 'أدخل كود التفعيل أولاً.'; return; }
-            if (VALID_CODES.indexOf(val) === -1) { msg.style.color = '#dc2626'; msg.textContent = 'الكود غير صحيح. تأكد من الكود وأعد المحاولة.'; return; }
+            msg.style.color = '#475569'; msg.textContent = 'جاري التحقق من الكود...';
+            var okRes = false;
+            try {
+                var rr = await fetch('https://mohasaba-online.vercel.app/api/redeem', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: SITE_ID, code: val }) });
+                var rd = await rr.json();
+                okRes = !!(rd && rd.ok);
+            } catch (e) { msg.style.color = '#dc2626'; msg.textContent = 'تعذر التحقق من الكود. تحقق من الاتصال وأعد المحاولة.'; return; }
+            if (!okRes) { msg.style.color = '#dc2626'; msg.textContent = 'الكود غير صحيح. تأكد من الكود وأعد المحاولة.'; return; }
             store(subKey(currentUser.uid), 'true');
             subscribed = true;
             try {
@@ -5720,4 +5722,4 @@
 })();
 </script>
 </body>
-  </html>
+                                  </html>
