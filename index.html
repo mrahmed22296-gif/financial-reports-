@@ -23,9 +23,9 @@
     --paper-deep: #F1F5F9;
     --card: #FFFFFF;
     --white: #FFFFFF;
-    --brass: #7C3AED;
-    --brass-dark: #6D28D9;
-    --accent-2: #06B6D4;
+    --brass: #0EA5E9;
+    --brass-dark: #0369A1;
+    --accent-2: #F97316;
     --emerald: #10B981;
     --emerald-soft: #D1FAE5;
     --signal: #EF4444;
@@ -47,7 +47,7 @@
 
   body {
     margin: 0;
-    background: radial-gradient(1100px 520px at 8% -10%, rgba(124, 58, 237, 0.08), transparent 60%), radial-gradient(900px 480px at 100% 0%, rgba(6, 182, 212, 0.08), transparent 55%), var(--paper);
+    background: radial-gradient(1100px 520px at 8% -10%, rgba(14, 165, 233, 0.08), transparent 60%), radial-gradient(900px 480px at 100% 0%, rgba(249, 115, 22, 0.08), transparent 55%), var(--paper);
     background-attachment: fixed;
     font-family: 'Tajawal', 'Inter', sans-serif;
     color: var(--ink);
@@ -97,7 +97,7 @@
   .lang-switch button.active {
     background: linear-gradient(135deg, var(--brass), var(--brass-dark));
     color: #fff;
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
   }
 
   .lang-switch button:hover:not(.active) {
@@ -106,7 +106,7 @@
 
   /* ===== HEADER ===== */
   header.hero {
-    background: radial-gradient(900px 420px at 15% 0%, rgba(124, 58, 237, 0.4), transparent 60%), radial-gradient(700px 380px at 100% 20%, rgba(6, 182, 212, 0.3), transparent 55%), linear-gradient(165deg, #0F172A 0%, #1E1B4B 55%, #0F172A 100%);
+    background: radial-gradient(900px 420px at 15% 0%, rgba(14, 165, 233, 0.4), transparent 60%), radial-gradient(700px 380px at 100% 20%, rgba(249, 115, 22, 0.3), transparent 55%), linear-gradient(165deg, #0F172A 0%, #1E1B4B 55%, #0F172A 100%);
     color: var(--paper);
     padding: 58px 24px 44px;
     position: relative;
@@ -179,7 +179,7 @@
     font-size: clamp(28px, 4vw, 44px);
     margin: 0 0 14px;
     line-height: 1.28;
-    background: linear-gradient(95deg, #FFFFFF 40%, #D9D3FF 100%);
+    background: linear-gradient(95deg, #FFFFFF 40%, #BAE6FD 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -343,7 +343,7 @@
     font-size: 13px;
     font-weight: 800;
     color: var(--brass);
-    background: #F0EDFF;
+    background: #E0F2FE;
     display: inline-block;
     padding: 2px 14px;
     border-radius: 20px;
@@ -405,7 +405,7 @@
   }
 
   .btn-demo:hover {
-    background: #F0EDFF;
+    background: #E0F2FE;
     transform: translateY(-2px);
   }
 
@@ -1149,7 +1149,7 @@
     font-family: 'Cairo', sans-serif;
     font-size: 20px;
     font-weight: 800;
-    background: linear-gradient(95deg, #fff, #D9D3FF);
+    background: linear-gradient(95deg, #fff, #BAE6FD);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -1172,7 +1172,7 @@
   }
 
   .developer-footer .dev-info a:hover {
-    color: #D9D3FF;
+    color: #BAE6FD;
   }
 
   .developer-footer .dev-copy {
@@ -1494,7 +1494,7 @@
 
   .cat-modal .type-btn.active {
     border-color: var(--brass);
-    background: #F0EDFF;
+    background: #E0F2FE;
     color: var(--brass-dark);
   }
 
@@ -1826,9 +1826,9 @@
       </div>
       <div class="scale-card">
         <svg class="scale-svg" viewBox="0 0 300 190">
-          <line x1="150" y1="178" x2="150" y2="46" stroke="#8C7CF0" stroke-width="5" />
-          <circle cx="150" cy="44" r="5.5" fill="#8C7CF0" />
-          <rect x="112" y="176" width="76" height="10" rx="3" fill="#8C7CF0" />
+          <line x1="150" y1="178" x2="150" y2="46" stroke="#7DD3FC" stroke-width="5" />
+          <circle cx="150" cy="44" r="5.5" fill="#7DD3FC" />
+          <rect x="112" y="176" width="76" height="10" rx="3" fill="#7DD3FC" />
           <g id="beamGroup">
             <line x1="55" y1="40" x2="245" y2="40" stroke="#C9CFF0" stroke-width="4.5" />
             <line x1="60" y1="40" x2="60" y2="78" stroke="#C9CFF0" stroke-width="2" />
@@ -3489,8 +3489,8 @@
           datasets: [{
             label: isEn ? 'Revenue' : 'الإيرادات',
             data: [revenue],
-            backgroundColor: 'rgba(124, 58, 237, 0.7)',
-            borderColor: '#7C3AED',
+            backgroundColor: 'rgba(14, 165, 233, 0.7)',
+            borderColor: '#0EA5E9',
             borderWidth: 2,
             borderRadius: 6
           }, {
@@ -3524,7 +3524,7 @@
       var ctx = canvas.getContext('2d');
       if (trendCharts.chart2) { trendCharts.chart2.destroy(); }
       var isEn = currentLang === 'en';
-      var colors = ['#7C3AED', '#06B6D4', '#F59E0B', '#EF4444', '#8B5CF6'];
+      var colors = ['#0EA5E9', '#F97316', '#F59E0B', '#EF4444', '#38BDF8'];
       var data = [];
       var labels = [];
       if (cogs > 0) { data.push(cogs); labels.push(isEn ? 'Cost of Sales' : 'تكلفة المبيعات'); }
@@ -3570,12 +3570,12 @@
           datasets: [{
             label: isEn ? 'Gross Margin %' : 'هامش مجمل الربح %',
             data: grossMargin,
-            borderColor: '#7C3AED',
-            backgroundColor: 'rgba(124, 58, 237, 0.1)',
+            borderColor: '#0EA5E9',
+            backgroundColor: 'rgba(14, 165, 233, 0.1)',
             fill: true,
             tension: 0.3,
             pointRadius: 6,
-            pointBackgroundColor: '#7C3AED'
+            pointBackgroundColor: '#0EA5E9'
           }, {
             label: isEn ? 'Net Margin %' : 'هامش صافي الربح %',
             data: netMargin,
@@ -4058,8 +4058,8 @@
                 data: vals,
                 backgroundColor: [
                   opTotal >= 0 ? '#10B981' : '#EF4444',
-                  '#7C3AED',
-                  '#06B6D4'
+                  '#0EA5E9',
+                  '#F97316'
                 ],
                 borderWidth: 0
               }]
@@ -4735,7 +4735,7 @@
                 labels: isEn ? ['Assets', 'Liabilities', 'Equity'] : ['الأصول', 'الالتزامات', 'حقوق الملكية'],
                 datasets: [{
                   data: [Math.abs(totalAssets), Math.abs(totalLiabilities), Math.abs(totalEquity)],
-                  backgroundColor: ['#7C3AED', '#EF4444', '#10B981'],
+                  backgroundColor: ['#0EA5E9', '#EF4444', '#10B981'],
                   borderWidth: 0
                 }]
               },
@@ -4754,7 +4754,7 @@
                 datasets: [{
                   label: isEn ? 'Amount' : 'المبلغ',
                   data: [totalRevenue, netIncome],
-                  backgroundColor: [netIncome >= 0 ? '#7C3AED' : '#EF4444', netIncome >= 0 ? '#10B981' : '#EF4444'],
+                  backgroundColor: [netIncome >= 0 ? '#0EA5E9' : '#EF4444', netIncome >= 0 ? '#10B981' : '#EF4444'],
                   borderRadius: 8
                 }]
               },
@@ -5367,5 +5367,311 @@
     loadLearnedData();
     addRow();
   </script>
+  <script>
+
+
+/* ===== تسجيل الدخول والاشتراك (Firebase) — مثل موقع مسار ===== */
+(function () {
+    'use strict';
+    if (window.__finAuthLoaded) return;
+    window.__finAuthLoaded = true;
+
+    var SITE_ID = 'financial-reports';
+    var FREE_USES = 1;
+    var WA_NUMBER = '96560085043';
+    var QR_URL = 'https://i.ibb.co/1GvzKs8r/Whats-App-Image-2026-08-06-at-4-44-31-PM-1.jpg';
+    var VALID_CODES = [
+        'FINREP-2026-A1B2', 'FINREP-2026-C3D4', 'FINREP-2026-E5F6',
+        'FINREP-2026-G7H8', 'FINREP-2026-I9J0',
+        'WAMD-1001', 'WAMD-1002', 'WAMD-1003', 'WAMD-1004', 'WAMD-1005'
+    ];
+    var FIREBASE_CONFIG = {
+        apiKey: 'AIzaSyCBtfYpB_j8X1ME-lMqP738Fy06FalSXIM',
+        authDomain: 'resume-builder-access.firebaseapp.com',
+        projectId: 'resume-builder-access',
+        storageBucket: 'resume-builder-access.firebasestorage.app',
+        messagingSenderId: '209097923358',
+        appId: '1:209097923358:web:90e660900f02a621b5c70f'
+    };
+    var COUNTED_ACTIONS = /(generateStatements|exportToPDF|exportToExcel)/;
+
+    function store(key, val) {
+        try {
+            if (val === undefined) return localStorage.getItem(key);
+            localStorage.setItem(key, val);
+        } catch (e) { return null; }
+    }
+    function subKey(uid) { return 'fin_subscribed_' + uid; }
+    function countKey(uid) { return 'fin_use_count_' + uid; }
+    function phoneSkipKey(uid) { return 'fin_phone_skip_' + uid; }
+
+    var currentUser = null;
+    var subscribed = false;
+    var useCount = 0;
+
+    /* ---------- التنسيقات ---------- */
+    var css = ''
+        + '.fin-auth-overlay{position:fixed;inset:0;z-index:999990;background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(14,165,233,.12),transparent),#f0f9ff;display:flex;align-items:center;justify-content:center;padding:16px;font-family:Tajawal,sans-serif;overflow-y:auto}'
+        + '.fin-auth-card{width:100%;max-width:430px;background:#fff;border:1px solid #dbeafe;border-radius:28px;padding:28px;box-shadow:0 24px 60px rgba(12,41,66,.12);text-align:center;box-sizing:border-box}'
+        + '.fin-auth-logo{width:56px;height:56px;margin:0 auto 12px;background:#0c2942;color:#fff;border-radius:16px;display:grid;place-items:center;font-size:24px;font-weight:900}'
+        + '.fin-auth-sub{color:#0369a1;font-size:12px;font-weight:700;margin:0}'
+        + '.fin-auth-title{font-size:24px;font-weight:900;margin:8px 0 12px;color:#0c2942}'
+        + '.fin-auth-desc{font-size:14px;color:#5b7285;line-height:1.9;margin:0 0 24px}'
+        + '.fin-btn{width:100%;min-height:48px;border-radius:14px;border:1px solid #dbeafe;background:#fff;color:#374151;font-weight:700;font-size:14px;display:flex;justify-content:center;align-items:center;gap:12px;cursor:pointer;font-family:inherit;box-sizing:border-box}'
+        + '.fin-btn:disabled{opacity:.6;cursor:default}'
+        + '.fin-btn-dark{background:#0c2942;color:#fff;border:none}'
+        + '.fin-btn-wa{background:#25D366;color:#fff;border:none}'
+        + '.fin-g-dot{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#ef4444 50%,#facc15)}'
+        + '.fin-auth-note{margin-top:16px;font-size:12px;line-height:1.8;color:#5b7285}'
+        + '.fin-auth-privacy{margin-top:8px;font-size:11px;line-height:1.8;color:#94a3b8}'
+        + '.fin-auth-err{margin-top:12px;font-size:12px;color:#dc2626;font-weight:700}'
+        + '.fin-pay-qrbox{background:#f0f9ff;border-radius:16px;padding:16px;border:1px solid #dbeafe}'
+        + '.fin-pay-qrbox img{width:200px;max-width:100%;margin:12px auto;display:block;border-radius:12px;border:1px solid #dbeafe}'
+        + '.fin-pay-steps{margin-top:16px;text-align:right;background:#ffedd5;border:1px solid #fdba74;border-radius:12px;padding:12px;font-size:11px;line-height:1.9;color:#9a3412}'
+        + '.fin-input{width:100%;text-align:center;border:1px solid #dbeafe;border-radius:12px;padding:12px 16px;font-size:14px;outline:none;font-family:inherit;box-sizing:border-box;margin-top:12px}'
+        + '.fin-link-btn{margin-top:12px;background:none;border:none;font-size:12px;color:#5b7285;text-decoration:underline;cursor:pointer;font-family:inherit}'
+        + '.fin-modal{position:fixed;inset:0;background:rgba(13,18,38,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:999991;font-family:Tajawal,sans-serif;overflow-y:auto}'
+        + '.fin-user-chip{position:fixed;bottom:18px;right:18px;z-index:99900;background:#0d1226;color:#e8ecf8;border-radius:999px;padding:8px 14px;display:flex;align-items:center;gap:10px;font-family:Tajawal,sans-serif;font-size:13px;box-shadow:0 8px 24px rgba(13,18,38,.35)}'
+        + '.fin-user-chip button{background:none;border:1px solid rgba(255,255,255,.25);color:#e8ecf8;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit}'
+        + '.fin-code-msg{margin-top:12px;font-size:12px;font-weight:700}';
+    var styleEl = document.createElement('style');
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    /* ---------- شاشة الدخول ---------- */
+    var gateEl = document.createElement('div');
+    gateEl.className = 'fin-auth-overlay';
+    gateEl.setAttribute('dir', 'rtl');
+    gateEl.innerHTML = ''
+        + '<div class="fin-auth-card">'
+        + '<div class="fin-auth-logo">ق</div>'
+        + '<p class="fin-auth-sub">منصة ذكية لتوليد القوائم المالية</p>'
+        + '<h1 class="fin-auth-title">مولد القوائم المالية</h1>'
+        + '<p class="fin-auth-desc">الميزانية العمومية، قائمة الدخل، قائمة التغير في حقوق الملكية والتصدير — قوائمك المالية جاهزة في دقائق.</p>'
+        + '<button type="button" class="fin-btn" id="finLoginBtn"><span class="fin-g-dot"></span>تسجيل الدخول بواسطة Google</button>'
+        + '<p class="fin-auth-note">تسجّل الدخول أولاً، ثم تتوفر لك محاولة مجانية قبل الاشتراك.</p>'
+        + '<p class="fin-auth-privacy">بتسجيل الدخول توافق على حفظ بياناتك الأساسية (الاسم والإيميل ورقم الهاتف إن أدخلته) لدى مالك الموقع لغرض إدارة الاشتراك والتواصل.</p>'
+        + '<p class="fin-auth-err" id="finLoginErr" style="display:none"></p>'
+        + '</div>';
+    document.body.appendChild(gateEl);
+    document.documentElement.style.overflow = 'hidden';
+
+    function showLoginError(msg) {
+        var el = document.getElementById('finLoginErr');
+        if (el) { el.textContent = msg; el.style.display = 'block'; }
+    }
+
+    /* ---------- نافذة الهاتف ---------- */
+    function openPhoneModal() {
+        if (document.getElementById('finPhoneModal')) return;
+        var m = document.createElement('div');
+        m.className = 'fin-modal';
+        m.id = 'finPhoneModal';
+        m.setAttribute('dir', 'rtl');
+        m.innerHTML = ''
+            + '<div class="fin-auth-card">'
+            + '<h2 style="font-size:18px;font-weight:900;margin:0 0 8px;color:#0c2942">رقم هاتفك (اختياري)</h2>'
+            + '<p class="fin-auth-desc" style="margin-bottom:16px">يُستخدم فقط للتواصل معك بخصوص تفعيل الاشتراك.</p>'
+            + '<input type="tel" id="finPhoneInput" class="fin-input" style="margin-top:0" placeholder="مثال: 60085043">'
+            + '<button type="button" class="fin-btn fin-btn-dark" id="finPhoneSave" style="margin-top:12px">حفظ</button>'
+            + '<button type="button" class="fin-link-btn" id="finPhoneSkip">تخطي الآن</button>'
+            + '</div>';
+        document.body.appendChild(m);
+        document.getElementById('finPhoneSave').addEventListener('click', function () {
+            var v = (document.getElementById('finPhoneInput').value || '').trim();
+            if (v && currentUser) {
+                try {
+                    firebase.firestore().collection('users').doc(currentUser.uid)
+                        .set({ phone: v }, { merge: true }).catch(function () {});
+                } catch (e) {}
+            }
+            if (currentUser) store(phoneSkipKey(currentUser.uid), '1');
+            m.remove();
+        });
+        document.getElementById('finPhoneSkip').addEventListener('click', function () {
+            if (currentUser) store(phoneSkipKey(currentUser.uid), '1');
+            m.remove();
+        });
+    }
+
+    /* ---------- نافذة الاشتراك ---------- */
+    function openPaywall() {
+        if (document.getElementById('finPayModal')) return;
+        var name = currentUser && currentUser.displayName ? currentUser.displayName : '';
+        var email = currentUser && currentUser.email ? currentUser.email : '';
+        var waText = encodeURIComponent('السلام عليكم،\nأريد تفعيل الاشتراك في مولد القوائم المالية.\nالمبلغ: 1 دينار\nالاسم: ' + name + '\nالإيميل: ' + email + '\n\nمرفق إيصال الدفع عبر ومض.');
+        var m = document.createElement('div');
+        m.className = 'fin-modal';
+        m.id = 'finPayModal';
+        m.setAttribute('dir', 'rtl');
+        m.innerHTML = ''
+            + '<div class="fin-auth-card" style="max-height:92vh;overflow-y:auto">'
+            + '<div class="fin-auth-logo" style="background:#f97316;font-size:20px">د</div>'
+            + '<p class="fin-auth-sub">اشتراك مولد القوائم المالية</p>'
+            + '<h2 style="font-size:20px;font-weight:900;margin:8px 0;color:#0c2942">انتهت المحاولة المجانية</h2>'
+            + '<p class="fin-auth-desc" style="margin-bottom:16px">اشترك مقابل <strong style="color:#f97316">1 دينار فقط</strong> لاستخدام كل الأدوات بلا حدود.</p>'
+            + '<div class="fin-pay-qrbox">'
+            + '<p style="margin:0;font-size:12px;font-weight:700;color:#0c2942">الدفع عبر ومض (WAMD)</p>'
+            + '<img src="' + QR_URL + '" alt="رمز QR للدفع عبر ومض">'
+            + '<p style="margin:0;font-size:11px;line-height:1.8;color:#5b7285">امسح رمز QR من تطبيق التمويل أون لاين أو أي تطبيق يدعم ومض.</p>'
+            + '</div>'
+            + '<div class="fin-pay-steps"><strong>خطوات التفعيل:</strong><br>1. ادفع 1 دينار عبر ومض.<br>2. خذ صورة للإيصال وأرسلها عبر واتساب.<br>3. ستصلك رسالة بكود التفعيل.</div>'
+            + '<a class="fin-btn fin-btn-wa" style="margin-top:16px;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/' + WA_NUMBER + '?text=' + waText + '">إرسال إيصال الدفع على واتساب</a>'
+            + '<div style="margin-top:20px;padding-top:20px;border-top:1px solid #dbeafe">'
+            + '<p style="margin:0;font-size:12px;font-weight:700;color:#0c2942">لديك كود تفعيل؟</p>'
+            + '<input type="text" id="finCodeInput" class="fin-input" placeholder="أدخل كود التفعيل" style="text-transform:uppercase">'
+            + '<button type="button" class="fin-btn fin-btn-dark" id="finCodeBtn" style="margin-top:8px">تفعيل الاشتراك</button>'
+            + '<p class="fin-code-msg" id="finCodeMsg" style="display:none"></p>'
+            + '</div>'
+            + '<button type="button" class="fin-link-btn" id="finPayClose">العودة لاحقاً</button>'
+            + '</div>';
+        document.body.appendChild(m);
+        document.getElementById('finPayClose').addEventListener('click', function () { m.remove(); });
+        document.getElementById('finCodeBtn').addEventListener('click', function () {
+            var msg = document.getElementById('finCodeMsg');
+            var val = (document.getElementById('finCodeInput').value || '').trim().toUpperCase();
+            msg.style.display = 'block';
+            if (!val) { msg.style.color = '#dc2626'; msg.textContent = 'أدخل كود التفعيل أولاً.'; return; }
+            if (VALID_CODES.indexOf(val) === -1) { msg.style.color = '#dc2626'; msg.textContent = 'الكود غير صحيح. تأكد من الكود وأعد المحاولة.'; return; }
+            store(subKey(currentUser.uid), 'true');
+            subscribed = true;
+            try {
+                firebase.firestore().collection('users').doc(currentUser.uid)
+                    .set({ subscriptions: firebase.firestore.FieldValue.arrayUnion(SITE_ID) }, { merge: true }).catch(function () {});
+            } catch (e) {}
+            msg.style.color = '#15803d';
+            msg.textContent = 'تم تفعيل الاشتراك بنجاح.';
+            setTimeout(function () { m.remove(); }, 1500);
+        });
+    }
+
+    /* ---------- عدّاد الاستخدام المجاني ---------- */
+    function tryConsume() {
+        if (!currentUser || subscribed) return true;
+        var current = Number(store(countKey(currentUser.uid)) || 0);
+        if (current < FREE_USES) {
+            store(countKey(currentUser.uid), String(current + 1));
+            useCount = current + 1;
+            return true;
+        }
+        return false;
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!currentUser || subscribed) return;
+        var el = e.target && e.target.closest ? e.target.closest('[onclick]') : null;
+        if (!el) return;
+        var handler = el.getAttribute('onclick') || '';
+        if (!COUNTED_ACTIONS.test(handler)) return;
+        if (!tryConsume()) {
+            e.preventDefault();
+            e.stopPropagation();
+            openPaywall();
+        }
+    }, true);
+
+    /* ---------- شارة المستخدم ---------- */
+    function addUserChip() {
+        if (document.getElementById('finUserChip')) return;
+        var chip = document.createElement('div');
+        chip.className = 'fin-user-chip';
+        chip.id = 'finUserChip';
+        var first = (currentUser.displayName || currentUser.email || 'مستخدم').split(' ')[0];
+        chip.innerHTML = '<span>' + first + '</span><button type="button" id="finSignOut">خروج</button>';
+        document.body.appendChild(chip);
+        document.getElementById('finSignOut').addEventListener('click', function () {
+            firebase.auth().signOut().finally(function () { location.reload(); });
+        });
+    }
+
+    /* ---------- حفظ بيانات الزائر ---------- */
+    function saveVisitor(u) {
+        try {
+            var ref = firebase.firestore().collection('users').doc(u.uid);
+            ref.get().then(function (snap) {
+                var base = { email: u.email || '', name: u.displayName || '', sites: firebase.firestore.FieldValue.arrayUnion(SITE_ID) };
+                if (!snap.exists) {
+                    base.phone = '';
+                    base.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    if (!store(phoneSkipKey(u.uid))) openPhoneModal();
+                } else {
+                    base.lastSeenAt = firebase.firestore.FieldValue.serverTimestamp();
+                    var data = snap.data() || {};
+                    if (!data.phone && !store(phoneSkipKey(u.uid))) openPhoneModal();
+                }
+                ref.set(base, { merge: true }).catch(function () {});
+            }).catch(function () {
+                if (!store(phoneSkipKey(u.uid))) openPhoneModal();
+            });
+        } catch (e) {
+            if (!store(phoneSkipKey(u.uid))) openPhoneModal();
+        }
+    }
+
+    /* ---------- تحميل Firebase ---------- */
+    function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+    var V = '10.12.2';
+    loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-app-compat.js')
+        .then(function () { return loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-auth-compat.js'); })
+        .then(function () { return loadScript('https://www.gstatic.com/firebasejs/' + V + '/firebase-firestore-compat.js'); })
+        .then(function () {
+            firebase.initializeApp(FIREBASE_CONFIG);
+            var auth = firebase.auth();
+            auth.getRedirectResult().catch(function () {});
+
+            document.getElementById('finLoginBtn').addEventListener('click', function () {
+                var provider = new firebase.auth.GoogleAuthProvider();
+                var btn = document.getElementById('finLoginBtn');
+                btn.disabled = true;
+                auth.signInWithPopup(provider).catch(function (error) {
+                    btn.disabled = false;
+                    if (error && error.code === 'auth/popup-blocked') {
+                        auth.signInWithRedirect(provider).catch(function () {
+                            showLoginError('تعذر فتح صفحة تسجيل الدخول. جرّب متصفحاً آخر.');
+                        });
+                    } else if (error && error.code === 'auth/unauthorized-domain') {
+                        showLoginError('هذا الرابط غير مفعّل بعد لتسجيل الدخول. جاري تفعيله.');
+                    } else if (error && error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+                        showLoginError('حدث خطأ أثناء تسجيل الدخول. حاول مرة أخرى.');
+                    }
+                });
+            });
+
+            auth.onAuthStateChanged(function (u) {
+                currentUser = u;
+                if (!u) {
+                    gateEl.style.display = 'flex';
+                    document.documentElement.style.overflow = 'hidden';
+                    return;
+                }
+                subscribed = store(subKey(u.uid)) === 'true';
+                useCount = Number(store(countKey(u.uid)) || 0);
+                gateEl.style.display = 'none';
+                document.documentElement.style.overflow = '';
+                addUserChip();
+                saveVisitor(u);
+            });
+        })
+        .catch(function () {
+            showLoginError('تعذر تحميل خدمة تسجيل الدخول. تحقق من الاتصال ثم أعد تحميل الصفحة.');
+            var btn = document.getElementById('finLoginBtn');
+            if (btn) {
+                btn.textContent = 'إعادة المحاولة';
+                btn.disabled = false;
+                btn.addEventListener('click', function () { location.reload(); });
+            }
+        });
+})();
+
+  </script>
 </body>
-</html>
+  </html>
