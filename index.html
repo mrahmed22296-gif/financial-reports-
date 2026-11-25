@@ -5673,5 +5673,51 @@
 })();
 
   </script>
+
+<script>
+/* ===== عداد الزوار المباشر ===== */
+(function () {
+    'use strict';
+    if (window.__vcLoaded) return;
+    window.__vcLoaded = true;
+    var SITE_ID = 'financial-reports';
+    var ROOT = 'https://firestore.googleapis.com/v1/projects/resume-builder-access/databases/(default)/documents';
+    var css = ''
+        + '.vc-badge{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:99800;background:#ffffff;border:1px solid #bae6fd;border-radius:999px;padding:6px 16px;display:flex;align-items:center;gap:8px;font-family:Tajawal,sans-serif;font-size:13px;font-weight:700;color:#0c2942;box-shadow:0 4px 14px rgba(12,41,66,.12);direction:rtl;box-sizing:border-box}'
+        + '.vc-badge .vc-dot{width:8px;height:8px;border-radius:50%;background:#0ea5e9;flex-shrink:0}'
+        + '.vc-badge .vc-num{color:#0369a1;font-weight:900;min-width:22px;text-align:center}';
+    var st = document.createElement('style');
+    st.textContent = css;
+    document.head.appendChild(st);
+    var el = document.createElement('div');
+    el.className = 'vc-badge';
+    el.innerHTML = '<span class="vc-dot"></span><span>عدد الزوار</span><span class="vc-num" id="vcNum">…</span>';
+    document.body.appendChild(el);
+    function setNum(v) { var n = document.getElementById('vcNum'); if (n) n.textContent = v; }
+    function read() {
+        fetch(ROOT + '/counters/' + SITE_ID)
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                var c = j && j.fields && j.fields.count ? Number(j.fields.count.integerValue) : 0;
+                setNum(c);
+            })
+            .catch(function () { setNum('–'); });
+    }
+    function bump() {
+        fetch(ROOT + ':commit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ writes: [{ transform: { document: 'projects/resume-builder-access/databases/(default)/documents/counters/' + SITE_ID, fieldTransforms: [{ fieldPath: 'count', increment: { integerValue: '1' } }] } }] })
+        }).then(read).catch(read);
+    }
+    try {
+        if (!sessionStorage.getItem('vc_counted_' + SITE_ID)) {
+            sessionStorage.setItem('vc_counted_' + SITE_ID, '1');
+            bump();
+        } else { read(); }
+    } catch (e) { read(); }
+    setInterval(read, 60000);
+})();
+</script>
 </body>
   </html>
